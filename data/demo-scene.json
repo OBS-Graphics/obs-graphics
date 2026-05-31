@@ -1,0 +1,185 @@
+{
+  "name": "Demo Scene",
+  "graphics": [
+    {
+      "id": "lower_third",
+      "elements": [
+        {
+          "id": "bg",
+          "type": "rectangle",
+          "x": 80, "y": 880, "w": 720, "h": 90,
+          "fill": {
+            "type": "linear",
+            "x0": 0, "y0": 0, "x1": 720, "y1": 0,
+            "stops": [
+              { "offset": 0.0, "color": [0.85, 0.10, 0.10, 1.0] },
+              { "offset": 1.0, "color": [0.50, 0.05, 0.05, 1.0] }
+            ]
+          },
+          "corner_radius": [6.0, 6.0, 6.0, 0.0],
+          "anim_in":  { "type": "slide_up",   "duration": 0.4, "delay": 0.0,  "easing": "ease_out" },
+          "anim_out": { "type": "slide_down",  "duration": 0.3, "delay": 0.05, "easing": "ease_in"  }
+        },
+        {
+          "id": "accent_bar",
+          "type": "rectangle",
+          "x": 80, "y": 966, "w": 720, "h": 4,
+          "fill": [1.0, 0.85, 0.0, 1.0],
+          "corner_radius": 0.0,
+          "anim_in":  { "type": "wipe_right", "duration": 0.35, "delay": 0.25, "easing": "ease_out" },
+          "anim_out": { "type": "wipe_left",  "duration": 0.25, "delay": 0.0,  "easing": "ease_in"  }
+        },
+        {
+          "id": "name",
+          "type": "text",
+          "x": 104, "y": 890, "w": 560, "h": 48,
+          "text": "Jane Doe",
+          "font_family": "Inter Bold",
+          "font_size": 40,
+          "color": [1.0, 1.0, 1.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.3, "delay": 0.15, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2, "delay": 0.0,  "easing": "ease_in"  }
+        },
+        {
+          "id": "title",
+          "type": "text",
+          "x": 104, "y": 934, "w": 560, "h": 28,
+          "text": "Senior Software Engineer",
+          "font_family": "Inter",
+          "font_size": 24,
+          "color": [1.0, 0.85, 0.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.3, "delay": 0.2,  "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2, "delay": 0.0,  "easing": "ease_in"  }
+        }
+      ]
+    },
+    {
+      "id": "score_bug",
+      "elements": [
+        {
+          "id": "bg",
+          "type": "rectangle",
+          "x": 810, "y": 20, "w": 300, "h": 80,
+          "fill": {
+            "type": "linear",
+            "x0": 0, "y0": 0, "x1": 0, "y1": 80,
+            "stops": [
+              { "offset": 0.0, "color": [0.08, 0.08, 0.12, 0.92] },
+              { "offset": 1.0, "color": [0.04, 0.04, 0.08, 0.92] }
+            ]
+          },
+          "stroke": [1.0, 1.0, 1.0, 0.15],
+          "stroke_width": 1.0,
+          "corner_radius": 8.0,
+          "anim_in":  { "type": "scale_in",  "duration": 0.35, "delay": 0.0,  "easing": "ease_out" },
+          "anim_out": { "type": "fade",      "duration": 0.25, "delay": 0.0,  "easing": "ease_in"  }
+        },
+        {
+          "id": "team_a",
+          "type": "text",
+          "x": 825, "y": 28, "w": 100, "h": 28,
+          "text": "HOME",
+          "font_family": "Inter Bold",
+          "font_size": 20,
+          "color": [1.0, 1.0, 1.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.25, "delay": 0.1, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2,  "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "score",
+          "type": "text",
+          "x": 893, "y": 26, "w": 74, "h": 34,
+          "text": "2 – 1",
+          "font_family": "Inter Bold",
+          "font_size": 28,
+          "color": [1.0, 0.85, 0.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.25, "delay": 0.1, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2,  "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "team_b",
+          "type": "text",
+          "x": 985, "y": 28, "w": 100, "h": 28,
+          "text": "AWAY",
+          "font_family": "Inter Bold",
+          "font_size": 20,
+          "color": [1.0, 1.0, 1.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.25, "delay": 0.1, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2,  "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "period",
+          "type": "text",
+          "x": 825, "y": 62, "w": 260, "h": 24,
+          "text": "Q3 · 08:42",
+          "font_family": "Inter",
+          "font_size": 18,
+          "color": [0.7, 0.7, 0.7, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.25, "delay": 0.15, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2,  "delay": 0.0,  "easing": "ease_in"  }
+        }
+      ]
+    },
+    {
+      "id": "ticker",
+      "elements": [
+        {
+          "id": "bg",
+          "type": "rectangle",
+          "x": 0, "y": 1020, "w": 1920, "h": 60,
+          "fill": {
+            "type": "linear",
+            "x0": 0, "y0": 0, "x1": 1920, "y1": 0,
+            "stops": [
+              { "offset": 0.0,  "color": [0.05, 0.05, 0.20, 0.95] },
+              { "offset": 0.5,  "color": [0.10, 0.10, 0.35, 0.95] },
+              { "offset": 1.0,  "color": [0.05, 0.05, 0.20, 0.95] }
+            ]
+          },
+          "corner_radius": 0.0,
+          "anim_in":  { "type": "slide_up",   "duration": 0.4, "delay": 0.0, "easing": "ease_out" },
+          "anim_out": { "type": "slide_down",  "duration": 0.3, "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "label_bg",
+          "type": "rectangle",
+          "x": 0, "y": 1020, "w": 160, "h": 60,
+          "fill": {
+            "type": "radial",
+            "cx0": 80, "cy0": 30, "r0": 0,
+            "cx1": 80, "cy1": 30, "r1": 90,
+            "stops": [
+              { "offset": 0.0, "color": [0.9, 0.2, 0.1, 1.0] },
+              { "offset": 1.0, "color": [0.6, 0.0, 0.0, 1.0] }
+            ]
+          },
+          "corner_radius": 0.0,
+          "anim_in":  { "type": "wipe_right", "duration": 0.35, "delay": 0.1, "easing": "ease_out" },
+          "anim_out": { "type": "wipe_left",  "duration": 0.25, "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "label",
+          "type": "text",
+          "x": 10, "y": 1032, "w": 140, "h": 36,
+          "text": "BREAKING",
+          "font_family": "Inter Bold",
+          "font_size": 22,
+          "color": [1.0, 1.0, 1.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.25, "delay": 0.3, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2,  "delay": 0.0, "easing": "ease_in"  }
+        },
+        {
+          "id": "message",
+          "type": "text",
+          "x": 175, "y": 1032, "w": 1720, "h": 36,
+          "text": "Breaking news: Scene loading from JSON is now fully implemented in obs-graphics.",
+          "font_family": "Inter",
+          "font_size": 22,
+          "color": [1.0, 1.0, 1.0, 1.0],
+          "anim_in":  { "type": "fade", "duration": 0.3, "delay": 0.35, "easing": "ease_out" },
+          "anim_out": { "type": "fade", "duration": 0.2, "delay": 0.0,  "easing": "ease_in"  }
+        }
+      ]
+    }
+  ]
+}
