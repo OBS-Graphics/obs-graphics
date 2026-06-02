@@ -9,6 +9,7 @@ using Record = std::unordered_map<std::string, std::string>;
 struct IDataSource {
     virtual ~IDataSource() = default;
     virtual std::vector<Record> GetData() const = 0;
+    virtual std::string GetFilePath() const = 0;
 };
 
 struct JsonFileDataSource : public IDataSource {
@@ -16,6 +17,7 @@ struct JsonFileDataSource : public IDataSource {
 
     JsonFileDataSource(const std::string& path) : filePath(path) {}
     std::vector<Record> GetData() const override;
+    std::string GetFilePath() const override { return filePath; }
 };
 
 struct CsvFileDataSource : public IDataSource {
@@ -23,4 +25,5 @@ struct CsvFileDataSource : public IDataSource {
 
     CsvFileDataSource(const std::string& path) : filePath(path) {}
     std::vector<Record> GetData() const override;
+    std::string GetFilePath() const override { return filePath; }
 };

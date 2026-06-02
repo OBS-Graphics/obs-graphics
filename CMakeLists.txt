@@ -51,6 +51,7 @@ set_target_properties(
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/plugin-main.cpp
     src/shared-scene.cpp
+    src/app-config.cpp
     src/graphics-dock.cpp
     src/graphics-source.cpp
     src/engine/element.cpp

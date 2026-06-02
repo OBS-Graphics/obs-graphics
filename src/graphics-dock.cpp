@@ -1,5 +1,6 @@
 #include "graphics-dock.h"
 #include "shared-scene.h"
+#include "app-config.h"
 #include "engine/data-source.h"
 
 #include <QFileDialog>
@@ -7,8 +8,11 @@
 #include <QLabel>
 #include <QStyle>
 
-GraphicsDockWidget::GraphicsDockWidget(QWidget *parent)
+#include <filesystem>
+
+GraphicsDockWidget::GraphicsDockWidget(QWidget *parent, std::string configPath)
     : QWidget(parent)
+    , m_configPath(std::move(configPath))
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
@@ -34,6 +38,8 @@ GraphicsDockWidget::GraphicsDockWidget(QWidget *parent)
     layout->addWidget(m_table);
 
     setLayout(layout);
+
+    loadConfig();
 }
 
 void GraphicsDockWidget::onLoadClicked()
@@ -51,7 +57,9 @@ void GraphicsDockWidget::onLoadClicked()
         g_scene_loaded  = true;
     }
 
+    m_scenePath = path.toStdString();
     rebuildTable();
+    saveConfig();
 }
 
 void GraphicsDockWidget::rebuildTable()
@@ -124,7 +132,6 @@ void GraphicsDockWidget::rebuildDataSourceCell(int row, int graphicIndex)
 
     auto *combo = new QComboBox();
     for (int i = 0; i < (int)records.size(); ++i) {
-        // compute text concatenating all values in the record like so: key: value, ...
         QString text;
         for (auto&& rec : records[i]) {
             if (!text.isEmpty())
@@ -133,9 +140,10 @@ void GraphicsDockWidget::rebuildDataSourceCell(int row, int graphicIndex)
         }
         combo->addItem(text);
     }
+    connect(combo, &QComboBox::currentIndexChanged, this, [this](int) { saveConfig(); });
     hbox->addWidget(combo, 1);
 
-    auto *removeBtn = new QPushButton();  // UTF-8 for ×
+    auto *removeBtn = new QPushButton();
     removeBtn->setFixedWidth(24);
     removeBtn->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
     removeBtn->setToolTip("Remove data source");
@@ -170,6 +178,7 @@ void GraphicsDockWidget::onLoadDataSource(int graphicIndex)
 
     m_dataSources[graphicIndex] = std::move(ds);
     rebuildDataSourceCell(graphicIndex, graphicIndex);
+    saveConfig();
 }
 
 void GraphicsDockWidget::onRemoveDataSource(int graphicIndex)
@@ -182,6 +191,7 @@ void GraphicsDockWidget::onRemoveDataSource(int graphicIndex)
 
     m_dataSources[graphicIndex].reset();
     rebuildDataSourceCell(graphicIndex, graphicIndex);
+    saveConfig();
 }
 
 void GraphicsDockWidget::onToggleGraphic(int graphicIndex)
@@ -220,4 +230,90 @@ void GraphicsDockWidget::onToggleGraphic(int graphicIndex)
             btn->setIcon(this->style()->standardIcon(QStyle::SP_MediaPlay));
         }
     }
+}
+
+void GraphicsDockWidget::saveConfig()
+{
+    if (m_loading)
+        return;
+
+    AppConfig cfg;
+    cfg.scenePath = m_scenePath;
+
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        auto *item = m_table->item(row, 0);
+        if (!item) continue;
+        std::string id = item->text().toStdString();
+
+        if (row < (int)m_dataSources.size() && m_dataSources[row]) {
+            std::string path = m_dataSources[row]->GetFilePath();
+            std::string type = path.ends_with(".csv") ? "csv" : "json";
+            cfg.dataSources[id] = {path, type};
+        }
+
+        if (auto *cell = m_table->cellWidget(row, 1)) {
+            if (auto *combo = cell->findChild<QComboBox*>())
+                cfg.selectedRecords[id] = combo->currentIndex();
+        }
+    }
+
+    cfg.Save(m_configPath);
+}
+
+void GraphicsDockWidget::loadConfig()
+{
+    AppConfig cfg = AppConfig::Load(m_configPath);
+    if (cfg.scenePath.empty() || !std::filesystem::exists(cfg.scenePath))
+        return;
+
+    m_loading = true;
+
+    try {
+        Scene loaded = Scene::Load(cfg.scenePath);
+        {
+            std::lock_guard<std::mutex> lock(g_scene_mutex);
+            g_active_scene = std::move(loaded);
+            g_scene_loaded = true;
+        }
+        m_scenePath = cfg.scenePath;
+    } catch (...) {
+        m_loading = false;
+        return;
+    }
+
+    rebuildTable();
+
+    for (int row = 0; row < m_table->rowCount(); ++row) {
+        auto *item = m_table->item(row, 0);
+        if (!item) continue;
+        std::string id = item->text().toStdString();
+
+        auto dsIt = cfg.dataSources.find(id);
+        if (dsIt == cfg.dataSources.end()) continue;
+        if (!std::filesystem::exists(dsIt->second.path)) continue;
+
+        std::unique_ptr<IDataSource> ds;
+        if (dsIt->second.type == "csv")
+            ds = std::make_unique<CsvFileDataSource>(dsIt->second.path);
+        else
+            ds = std::make_unique<JsonFileDataSource>(dsIt->second.path);
+
+        {
+            std::lock_guard<std::mutex> lock(g_scene_mutex);
+            if (row < (int)g_active_scene.graphics.size())
+                g_active_scene.graphics[row].dataSource = ds.get();
+        }
+        m_dataSources[row] = std::move(ds);
+        rebuildDataSourceCell(row, row);
+
+        auto recIt = cfg.selectedRecords.find(id);
+        if (recIt != cfg.selectedRecords.end()) {
+            if (auto *cell = m_table->cellWidget(row, 1)) {
+                if (auto *combo = cell->findChild<QComboBox*>())
+                    combo->setCurrentIndex(recIt->second);
+            }
+        }
+    }
+
+    m_loading = false;
 }

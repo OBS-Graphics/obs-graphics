@@ -21,6 +21,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <plugin-support.h>
 #include "graphics-dock.h"
 
+#include <filesystem>
+#include <string>
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
@@ -31,7 +34,13 @@ bool obs_module_load(void)
 	obs_register_source(&gGraphicsSourceInfo);
 
 	auto *mainWin = static_cast<QWidget *>(obs_frontend_get_main_window());
-	auto *dock = new GraphicsDockWidget(mainWin);
+
+	char *cfgRaw = obs_module_config_path("config.json");
+	std::string configPath(cfgRaw);
+	bfree(cfgRaw);
+	std::filesystem::create_directories(std::filesystem::path(configPath).parent_path());
+
+	auto *dock = new GraphicsDockWidget(mainWin, std::move(configPath));
 	obs_frontend_add_dock_by_id("obs-graphics-dock", "Graphics", dock);
 
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);

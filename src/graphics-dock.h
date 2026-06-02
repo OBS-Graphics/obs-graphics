@@ -10,12 +10,13 @@
 #include <QHBoxLayout>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit GraphicsDockWidget(QWidget *parent = nullptr);
+    explicit GraphicsDockWidget(QWidget *parent, std::string configPath);
 
 private slots:
     void onLoadClicked();
@@ -26,9 +27,15 @@ private:
     void rebuildDataSourceCell(int row, int graphicIndex);
     void onLoadDataSource(int graphicIndex);
     void onRemoveDataSource(int graphicIndex);
+    void saveConfig();
+    void loadConfig();
 
     QPushButton  *m_loadBtn;
     QTableWidget *m_table;
 
     std::vector<std::unique_ptr<IDataSource>> m_dataSources;
+
+    std::string m_configPath;
+    std::string m_scenePath;
+    bool        m_loading{false};
 };
