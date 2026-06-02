@@ -1,6 +1,6 @@
 #include <obs-module.h>
 #include <cairo/cairo.h>
-#include "engine/engine.h"
+#include "engine/scene.h"
 #include "shared-scene.h"
 
 struct GraphicsSource {
@@ -88,12 +88,12 @@ static void source_video_tick(void *data, float seconds)
     g_active_scene.width  = (int)s->width;
     g_active_scene.height = (int)s->height;
 
-    EngineTickScene(g_active_scene, seconds);
+    g_active_scene.Tick(seconds);
 
     cairo_set_operator(s->cr, CAIRO_OPERATOR_CLEAR);
     cairo_paint(s->cr);
     cairo_set_operator(s->cr, CAIRO_OPERATOR_OVER);
-    EngineRenderScene(s->cr, g_active_scene);
+    g_active_scene.Render(s->cr);
     cairo_surface_flush(s->surface);
 }
 

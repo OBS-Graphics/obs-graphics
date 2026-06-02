@@ -1,80 +1,7 @@
-#include "engine.h"
+#include "scene.h"
+
 #include "json.hpp"
 #include <fstream>
-
-AnimatedTransform EvaluateAnimation(
-    const AnimationDef& def,
-    double timer,
-    bool isOut,
-    const Element& el
-) {
-    AnimatedTransform out{};
-
-    double t = (timer - def.delay) / def.duration;
-    double p = ApplyEasing(std::clamp(t, 0.0, 1.0), def.easing);
-    if (isOut) p = 1.0f - p;
-
-    switch (def.type) {
-        case AnimationType::None: break;
-        case AnimationType::Fade: out.opacity = p; break;
-        case AnimationType::SlideUp: out.offsetY = (1.0 - p) * el.bounds.height; break;
-        case AnimationType::SlideDown: out.offsetY = -(1.0 - p) * el.bounds.height; break;
-        case AnimationType::SlideLeft: out.offsetX = (1.0 - p) * el.bounds.width; break;
-        case AnimationType::SlideRight: out.offsetX = -(1.0 - p) * el.bounds.width; break;
-        case AnimationType::WipeUp: out.clipY = 1.0 - p; out.clipH = p; break;
-        case AnimationType::WipeDown: out.clipH = p; break;
-        case AnimationType::WipeLeft: out.clipX = 1.0 - p; out.clipW = p; break;
-        case AnimationType::WipeRight: out.clipW = p; break;
-        case AnimationType::ScaleIn:
-            out.opacity = p;
-            out.scale = p;
-            break;
-    }
-
-    return out;
-}
-
-void EngineTickScene(Scene& scene, float timeStep) {
-    for (auto& g : scene.graphics) {
-        if (g.state == GraphicState::Hidden || g.state == GraphicState::Visible) {
-            continue;
-        }
-
-        g.timer += timeStep;
-
-        bool allDone = true;
-        for (const auto& el : g.elements) {
-            const auto& def = g.state == GraphicState::AnimatingIn
-                ? el.inAnimation : el.outAnimation;
-            if (g.timer < def.delay + def.duration) {
-                allDone = false;
-                break;
-            }
-        }
-
-        if (allDone) {
-            g.state = g.state == GraphicState::AnimatingIn
-                ? GraphicState::Visible : GraphicState::Hidden;
-        }
-    }
-}
-
-void EngineRenderScene(cairo_t* ctx, Scene &scene) {
-    for (auto& g : scene.graphics) {
-        if (g.state == GraphicState::Hidden) continue;
-
-        for (const auto& el : g.elements) {
-            bool isOut = g.state == GraphicState::AnimatingOut;
-            const auto& def = isOut ? el.outAnimation : el.inAnimation;
-            AnimatedTransform xf = EvaluateAnimation(def, g.timer, isOut, el);
-
-            cairo_save(ctx);
-            cairo_translate(ctx, el.bounds.x, el.bounds.y);
-            el.Render(ctx, xf);
-            cairo_restore(ctx);
-        }
-    }
-}
 
 // ── JSON loading ─────────────────────────────────────────────────────────────
 
@@ -108,6 +35,41 @@ static AnimationDef ParseAnimationDef(const json& j) {
         .duration = j.value("duration", 0.5f),
         .delay    = j.value("delay", 0.0f),
     };
+}
+
+static FontWeight ParseFontWeight(const std::string& s) {
+    if (s == "thin")        return FontWeight::Thin;
+    if (s == "ultrathin")   return FontWeight::UltraThin;
+    if (s == "ultralight")  return FontWeight::UltraLight;
+    if (s == "semilight")   return FontWeight::SemiLight;
+    if (s == "light")       return FontWeight::Light;
+    if (s == "book")        return FontWeight::Book;
+    if (s == "medium")      return FontWeight::Medium;
+    if (s == "semibold")    return FontWeight::SemiBold;
+    if (s == "bold")        return FontWeight::Bold;
+    if (s == "ultrabold")   return FontWeight::UltraBold;
+    if (s == "heavy")       return FontWeight::Heavy;
+    if (s == "ultraheavy")  return FontWeight::UltraHeavy;
+    return FontWeight::Normal;
+}
+
+static Alignment ParseAlignment(const std::string& s) {
+    if (s == "center")          return Alignment::Center;
+    if (s == "far"  || s == "right" || s == "bottom") return Alignment::Far;
+    return Alignment::Near;
+}
+
+static Ellipsize ParseEllipsize(const std::string& s) {
+    if (s == "start")  return Ellipsize::Start;
+    if (s == "middle") return Ellipsize::Middle;
+    if (s == "end")    return Ellipsize::End;
+    return Ellipsize::None;
+}
+
+static WrapMode ParseWrapMode(const std::string& s) {
+    if (s == "char")      return WrapMode::Char;
+    if (s == "word_char") return WrapMode::WordChar;
+    return WrapMode::Word;
 }
 
 static Paint ParsePaint(const json& v) {
@@ -144,8 +106,9 @@ static Paint ParsePaint(const json& v) {
 
 static Element ParseElement(const json& j) {
     Element el;
-    el.id   = j.value("id", "");
-    el.type = j.value("type", "") == "text" ? ElementType::Text : ElementType::Rectangle;
+    el.id = j.value("id", "");
+    std::string t = j.value("type", "");
+    el.type = (t == "text") ? ElementType::Text : ElementType::Rectangle;
 
     el.bounds = {
         j.value("x", 0.0), j.value("y", 0.0),
@@ -167,12 +130,20 @@ static Element ParseElement(const json& j) {
         }
     }
 
+    el.zOrder      = j.value("z_order", 0);
     el.strokeWidth = j.value("stroke_width", 0.0f);
     el.opacity     = j.value("opacity", 1.0f);
     el.rotation    = j.value("rotation", 0.0f);
     el.text        = j.value("text", "");
     el.font.family = j.value("font_family", "Sans");
     el.font.size   = j.value("font_size", 36.0f);
+    el.font.isItalic = j.value("font_italic", false);
+    el.font.weight = ParseFontWeight(j.value("font_weight", "normal"));
+    el.autoScale   = j.value("auto_scale", false);
+    el.textAlignX  = ParseAlignment(j.value("text_align_x", "near"));
+    el.textAlignY  = ParseAlignment(j.value("text_align_y", "near"));
+    el.ellipsize   = ParseEllipsize(j.value("ellipsize", "none"));
+    el.wrapMode    = ParseWrapMode(j.value("wrap", "word"));
 
     if (j.contains("anim_in"))  el.inAnimation  = ParseAnimationDef(j["anim_in"]);
     if (j.contains("anim_out")) el.outAnimation = ParseAnimationDef(j["anim_out"]);
@@ -182,11 +153,41 @@ static Element ParseElement(const json& j) {
 
 static Graphic ParseGraphic(const json& j) {
     Graphic g;
-    g.id = j.value("id", "");
+    g.id      = j.value("id", "");
+    g.zOrder  = j.value("z_order", 0);
+
+    struct PendingRef { size_t idx; std::string maskId; std::string parentId; };
+    std::vector<PendingRef> pending;
+
     if (j.contains("elements") && j["elements"].is_array()) {
-        for (const auto& ej : j["elements"])
+        for (const auto& ej : j["elements"]) {
+            pending.push_back({
+                .idx = g.elements.size(),
+                .maskId = ej.value("mask", ""),
+                .parentId = ej.value("parent", "")
+            });
             g.elements.push_back(ParseElement(ej));
+        }
     }
+
+    std::unordered_map<std::string, size_t> idMap;
+    for (size_t i = 0; i < g.elements.size(); i++)
+        idMap[g.elements[i].id] = i;
+
+    for (auto& ref : pending) {
+        auto& el = g.elements[ref.idx];
+
+        if (!ref.maskId.empty()) {
+            auto it = idMap.find(ref.maskId);
+            if (it != idMap.end()) el.mask = &g.elements[it->second];
+        }
+
+        if (!ref.parentId.empty()) {
+            auto it = idMap.find(ref.parentId);
+            if (it != idMap.end()) el.parent = &g.elements[it->second];
+        }
+    }
+
     return g;
 }
 
@@ -200,7 +201,38 @@ Scene Scene::LoadString(const std::string& jsonStr) {
     return scene;
 }
 
-Scene Scene::Load(const std::string& jsonPath) {
+void Scene::Tick(float timeStep)
+{
+    for (auto& g : graphics) {
+        g.Tick(timeStep);
+    }
+}
+
+void Scene::Render(cairo_t *ctx) const
+{
+    std::vector<size_t> gOrder(graphics.size());
+    std::iota(gOrder.begin(), gOrder.end(), 0);
+    std::stable_sort(gOrder.begin(), gOrder.end(), [&](size_t a, size_t b) {
+        return graphics[a].zOrder < graphics[b].zOrder;
+    });
+
+    for (size_t gi : gOrder) {
+        const auto& g = graphics[gi];
+        g.Render(ctx);
+    }
+}
+
+Graphic &Scene::GetById(const std::string& id)
+{
+    for (auto& g : graphics) {
+        if (g.id == id)
+            return g;
+    }
+    throw std::runtime_error("Graphic with id '" + id + "' not found");
+}
+
+Scene Scene::Load(const std::string &jsonPath)
+{
     std::ifstream f(jsonPath);
     return LoadString(std::string(
         std::istreambuf_iterator<char>(f),

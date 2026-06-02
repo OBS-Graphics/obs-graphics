@@ -1,5 +1,5 @@
-#include "engine.h"
-#include <pango/pangocairo.h>
+#include "element.h"
+
 #include <cmath>
 
 static void RoundRect(cairo_t* ctx, double x, double y, double w, double h,
@@ -41,7 +41,6 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
     cairo_push_group(ctx);
 
     switch (type) {
-        case ElementType::Layout: break; // Layout is just for Flex layout
         case ElementType::Rectangle: {
             RoundRect(ctx, 0, 0, bounds.width, bounds.height, cornerRadius);
 
@@ -49,7 +48,7 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
             bool hasStroke = stroke.Valid() && strokeWidth > 0.0f;
 
             if (hasFill) {
-                fill.Apply(ctx);
+                fill.Apply(ctx, bounds.width, bounds.height);
                 if (hasStroke)
                     cairo_fill_preserve(ctx);
                 else
@@ -57,7 +56,7 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
             }
 
             if (hasStroke) {
-                stroke.Apply(ctx);
+                stroke.Apply(ctx, bounds.width, bounds.height);
                 cairo_set_line_width(ctx, strokeWidth);
                 cairo_stroke(ctx);
             }
@@ -65,32 +64,76 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
         }
 
         case ElementType::Text: {
-            cairo_move_to(ctx, 0, 0);
-
             PangoLayout* layout = pango_cairo_create_layout(ctx);
             pango_layout_set_text(layout, text.c_str(), -1);
-            pango_layout_set_width(layout, static_cast<int>(bounds.width * PANGO_SCALE));
 
             PangoFontDescription* fd = pango_font_description_new();
             if (!font.family.empty())
                 pango_font_description_set_family(fd, font.family.c_str());
             pango_font_description_set_size(fd, static_cast<int>(font.size * PANGO_SCALE));
-            if (font.isBold)
-                pango_font_description_set_weight(fd, PANGO_WEIGHT_BOLD);
+            pango_font_description_set_weight(fd, static_cast<PangoWeight>(font.weight));
             if (font.isItalic)
                 pango_font_description_set_style(fd, PANGO_STYLE_ITALIC);
+
             pango_layout_set_font_description(layout, fd);
+
+            static constexpr PangoAlignment kAlignMap[] = {
+                PANGO_ALIGN_LEFT, PANGO_ALIGN_CENTER, PANGO_ALIGN_RIGHT
+            };
+            pango_layout_set_alignment(layout, kAlignMap[(int)textAlignX]);
+
+            double ox = 0.0, oy = 0.0;
+
+            if (autoScale) {
+                pango_layout_set_width(layout, -1);
+                PangoRectangle nat;
+                pango_layout_get_pixel_extents(layout, &nat, nullptr);
+                if (nat.width > 0 && nat.height > 0) {
+                    double sx = bounds.width  / nat.width;
+                    double sy = bounds.height / nat.height;
+                    float newSize = font.size * (float)std::min(sx, sy);
+                    pango_font_description_set_size(fd, static_cast<int>(newSize * PANGO_SCALE));
+                    pango_layout_set_font_description(layout, fd);
+                }
+                PangoRectangle ink;
+                pango_layout_get_pixel_extents(layout, &ink, nullptr);
+                ox = -ink.x;
+                oy = -ink.y;
+            } else {
+                pango_layout_set_width(layout, static_cast<int>(bounds.width * PANGO_SCALE));
+                pango_layout_set_wrap(layout, static_cast<PangoWrapMode>(wrapMode));
+                if (ellipsize != Ellipsize::None) {
+                    pango_layout_set_ellipsize(layout, static_cast<PangoEllipsizeMode>(ellipsize));
+                    pango_layout_set_height(layout, static_cast<int>(bounds.height * PANGO_SCALE));
+                }
+
+                PangoRectangle ink;
+                pango_layout_get_pixel_extents(layout, &ink, nullptr);
+                switch (textAlignY) {
+                    case Alignment::Near:
+                        oy = -ink.y;
+                        break;
+                    case Alignment::Far:
+                        oy = bounds.height - ink.height - ink.y;
+                        break;
+                    default:
+                        oy = (bounds.height - ink.height) / 2.0 - ink.y;
+                        break;
+                }
+            }
+
             pango_font_description_free(fd);
 
             if (fill.Valid()) {
-                fill.Apply(ctx);
+                cairo_move_to(ctx, ox, oy);
+                fill.Apply(ctx, bounds.width, bounds.height);
                 pango_cairo_show_layout(ctx, layout);
             }
 
             if (stroke.Valid() && strokeWidth > 0.0f) {
-                cairo_move_to(ctx, 0, 0);
+                cairo_move_to(ctx, ox, oy);
                 pango_cairo_layout_path(ctx, layout);
-                stroke.Apply(ctx);
+                stroke.Apply(ctx, bounds.width, bounds.height);
                 cairo_set_line_width(ctx, strokeWidth);
                 cairo_stroke(ctx);
             }
@@ -105,9 +148,15 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
 }
 
 void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf) const {
-    // Clip to the rounded shape, then intersect with the wipe rect
     RoundRect(ctx, 0, 0, bounds.width, bounds.height, cornerRadius);
     cairo_clip(ctx);
+
+    if (mask != nullptr) {
+        float mx = (float)(mask->bounds.x - bounds.x);
+        float my = (float)(mask->bounds.y - bounds.y);
+        RoundRect(ctx, mx, my, mask->bounds.width, mask->bounds.height, mask->cornerRadius);
+        cairo_clip(ctx);
+    }
 
     cairo_rectangle(ctx,
         xf.clipX * bounds.width,
@@ -115,4 +164,15 @@ void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf) const {
         xf.clipW * bounds.width,
         xf.clipH * bounds.height);
     cairo_clip(ctx);
+}
+
+Point Element::GetGlobalPosition() const
+{
+    Point result{bounds.x, bounds.y};
+    if (parent) {
+        Point parentPos = parent->GetGlobalPosition();
+        result.x += parentPos.x;
+        result.y += parentPos.y;
+    }
+    return result;
 }

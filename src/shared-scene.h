@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mutex>
-#include "engine/engine.h"
+#include "engine/scene.h"
 
 extern std::mutex g_scene_mutex;
 extern Scene      g_active_scene;
