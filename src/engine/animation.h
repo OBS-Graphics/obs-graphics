@@ -10,14 +10,14 @@ template <typename T>
 concept FloatingPoint = std::same_as<T, float> || std::same_as<T, double>;
 
 enum class Easing {
-    Linear,
+    Linear = 0,
     EaseIn,
     EaseOut,
     EaseInOut
 };
 
 enum class AnimationType {
-    None,
+    None = 0,
     Fade,
     SlideUp, SlideDown, SlideLeft, SlideRight,
     ScaleIn,

@@ -80,7 +80,9 @@ struct Element {
     Ellipsize ellipsize{Ellipsize::None};
     WrapMode wrapMode{WrapMode::Word};
 
-    void Render(cairo_t* ctx, const AnimatedTransform& xf) const;
-    void ApplyClipping(cairo_t* ctx, const AnimatedTransform& xf) const;
+    void Render(cairo_t* ctx, const AnimatedTransform& xf,
+                const AnimatedTransform* maskXf = nullptr) const;
+    void ApplyClipping(cairo_t* ctx, const AnimatedTransform& xf,
+                       const AnimatedTransform* maskXf = nullptr) const;
     Point GetGlobalPosition() const;
 };

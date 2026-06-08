@@ -14,9 +14,10 @@ static void RoundRect(cairo_t* ctx, double x, double y, double w, double h,
     cairo_close_path(ctx);
 }
 
-void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
+void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
+                     const AnimatedTransform* maskXf) const
 {
-    ApplyClipping(ctx, xf);
+    ApplyClipping(ctx, xf, maskXf);
 
     // Slide offset
     cairo_translate(ctx, xf.offsetX, xf.offsetY);
@@ -147,13 +148,20 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf) const
     cairo_paint_with_alpha(ctx, opacity * xf.opacity);
 }
 
-void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf) const {
+void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf,
+                             const AnimatedTransform* maskXf) const {
     RoundRect(ctx, 0, 0, bounds.width, bounds.height, cornerRadius);
     cairo_clip(ctx);
 
     if (mask != nullptr) {
-        float mx = (float)(mask->bounds.x - bounds.x);
-        float my = (float)(mask->bounds.y - bounds.y);
+        Point maskGlobal = mask->GetGlobalPosition();
+        Point selfGlobal = GetGlobalPosition();
+        float mx = (float)(maskGlobal.x - selfGlobal.x);
+        float my = (float)(maskGlobal.y - selfGlobal.y);
+        if (maskXf) {
+            mx += (float)maskXf->offsetX;
+            my += (float)maskXf->offsetY;
+        }
         RoundRect(ctx, mx, my, mask->bounds.width, mask->bounds.height, mask->cornerRadius);
         cairo_clip(ctx);
     }

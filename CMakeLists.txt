@@ -28,12 +28,8 @@ set_target_properties(
 )
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(PANGOCAIRO REQUIRED pangocairo)
-pkg_check_modules(CAIRO REQUIRED cairo)
 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PANGOCAIRO_LIBRARIES} ${CAIRO_LIBRARIES})
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${PANGOCAIRO_INCLUDE_DIRS} ${CAIRO_INCLUDE_DIRS})
-target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE ${PANGOCAIRO_CFLAGS_OTHER} ${CAIRO_CFLAGS_OTHER})
+add_subdirectory(src/engine)
 
 target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_20)
 
@@ -54,13 +50,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/app-config.cpp
     src/graphics-dock.cpp
     src/graphics-source.cpp
-    src/engine/element.cpp
-    src/engine/types.hpp
-    src/engine/animation.cpp
-    src/engine/graphic.cpp
-    src/engine/scene.cpp
-    src/engine/data-source.cpp
 )
+
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE engine)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME})
 

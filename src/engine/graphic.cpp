@@ -72,17 +72,33 @@ void Graphic::Render(cairo_t *ctx) const
         return elements[a].zOrder < elements[b].zOrder;
     });
 
+    bool isOut = state == GraphicState::AnimatingOut;
+
+    // Pre-compute all transforms so mask elements' animated offsets can be applied
+    std::vector<AnimatedTransform> xforms(elements.size());
+    for (size_t i = 0; i < elements.size(); ++i) {
+        const auto& def = isOut ? elements[i].outAnimation : elements[i].inAnimation;
+        xforms[i] = animation::EvaluateAnimation(def, timer, isOut, elements[i]);
+    }
+
     for (size_t ei : eOrder) {
         const auto& el = elements[ei];
-        bool isOut = state == GraphicState::AnimatingOut;
-        const auto& def = isOut ? el.outAnimation : el.inAnimation;
-        AnimatedTransform xf = animation::EvaluateAnimation(def, timer, isOut, el);
+        const AnimatedTransform& xf = xforms[ei];
+
+        const AnimatedTransform* maskXf = nullptr;
+        if (el.mask != nullptr) {
+            for (size_t mi = 0; mi < elements.size(); ++mi) {
+                if (&elements[mi] == el.mask) {
+                    maskXf = &xforms[mi];
+                    break;
+                }
+            }
+        }
 
         auto pos = el.GetGlobalPosition();
-
         cairo_save(ctx);
         cairo_translate(ctx, pos.x, pos.y);
-        el.Render(ctx, xf);
+        el.Render(ctx, xf, maskXf);
         cairo_restore(ctx);
     }
 }

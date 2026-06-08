@@ -194,6 +194,8 @@ static Graphic ParseGraphic(const json& j) {
 Scene Scene::LoadString(const std::string& jsonStr) {
     Scene scene;
     auto j = json::parse(jsonStr);
+    scene.width  = j.value("width",  1920);
+    scene.height = j.value("height", 1080);
     if (j.contains("graphics") && j["graphics"].is_array()) {
         for (const auto& gj : j["graphics"])
             scene.graphics.push_back(ParseGraphic(gj));
