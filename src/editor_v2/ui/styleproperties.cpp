@@ -1,18 +1,16 @@
 #include "styleproperties.h"
-#include "ui/painteditor.h"
+#include "engine/element.h"
+#include "engine/graphic.h"
+#include "engine/scene.h"
 #include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
-#include "engine/scene.h"
-#include "engine/graphic.h"
-#include "engine/element.h"
+#include "ui/painteditor.h"
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QVBoxLayout>
 
-StyleProperties::StyleProperties(SceneDocument* doc, QWidget *parent)
-    : QWidget{parent}
-    , m_doc(doc)
+StyleProperties::StyleProperties(SceneDocument* doc, QWidget* parent) : QWidget{parent}, m_doc(doc)
 {
     auto* root = new QVBoxLayout(this);
     {
@@ -60,17 +58,15 @@ StyleProperties::StyleProperties(SceneDocument* doc, QWidget *parent)
 
     setEnabled(false);
 
-    connect(m_strokeWidth, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, &StyleProperties::onStrokeWidthChanged);
-    connect(m_fillPaint,   &PaintEditor::paintChanged,
-            this, &StyleProperties::onFillPaintChanged);
-    connect(m_strokePaint, &PaintEditor::paintChanged,
-            this, &StyleProperties::onStrokePaintChanged);
-    connect(m_cornerRadius, &CornerRadiusEditor::valuesChanged,
-            this, &StyleProperties::onCornerRadiusChanged);
+    connect(m_strokeWidth, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &StyleProperties::onStrokeWidthChanged);
+    connect(m_fillPaint, &PaintEditor::paintChanged, this, &StyleProperties::onFillPaintChanged);
+    connect(m_strokePaint, &PaintEditor::paintChanged, this,
+            &StyleProperties::onStrokePaintChanged);
+    connect(m_cornerRadius, &CornerRadiusEditor::valuesChanged, this,
+            &StyleProperties::onCornerRadiusChanged);
 
-    connect(m_doc, &SceneDocument::documentChanged,
-            this, &StyleProperties::onDocumentChanged);
+    connect(m_doc, &SceneDocument::documentChanged, this, &StyleProperties::onDocumentChanged);
 }
 
 void StyleProperties::setSelection(const std::string& graphicId, const std::string& elementId)
@@ -82,7 +78,8 @@ void StyleProperties::setSelection(const std::string& graphicId, const std::stri
 
 void StyleProperties::onDocumentChanged()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     if (m_graphicId.empty() || m_elementId.empty()) {
         setEnabled(false);
         return;
@@ -104,45 +101,41 @@ void StyleProperties::onDocumentChanged()
     m_fillPaint->setPaint(el->fill);
     m_strokePaint->setPaint(el->stroke);
     m_cornerRadius->setValues(
-        static_cast<float>(el->cornerRadius[0]),
-        static_cast<float>(el->cornerRadius[1]),
-        static_cast<float>(el->cornerRadius[2]),
-        static_cast<float>(el->cornerRadius[3])
-    );
+        static_cast<float>(el->cornerRadius[0]), static_cast<float>(el->cornerRadius[1]),
+        static_cast<float>(el->cornerRadius[2]), static_cast<float>(el->cornerRadius[3]));
 
     m_updating = false;
 }
 
 void StyleProperties::onStrokeWidthChanged(double value)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<float>(
         m_doc, m_graphicId, m_elementId, static_cast<float>(value),
-        [](Element& e) -> float& { return e.strokeWidth; },
-        "strokeWidth", ElemMergeTag::StrokeW
-    ));
+        [](Element& e) -> float& { return e.strokeWidth; }, "strokeWidth", ElemMergeTag::StrokeW));
 }
 
 void StyleProperties::onFillPaintChanged(const Paint& paint)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
-    m_doc->undoStack()->push(new SetElementPaintCmd(
-        m_doc, m_graphicId, m_elementId, SetElementPaintCmd::Target::Fill, paint
-    ));
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    m_doc->undoStack()->push(new SetElementPaintCmd(m_doc, m_graphicId, m_elementId,
+                                                    SetElementPaintCmd::Target::Fill, paint));
 }
 
 void StyleProperties::onStrokePaintChanged(const Paint& paint)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
-    m_doc->undoStack()->push(new SetElementPaintCmd(
-        m_doc, m_graphicId, m_elementId, SetElementPaintCmd::Target::Stroke, paint
-    ));
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    m_doc->undoStack()->push(new SetElementPaintCmd(m_doc, m_graphicId, m_elementId,
+                                                    SetElementPaintCmd::Target::Stroke, paint));
 }
 
 void StyleProperties::onCornerRadiusChanged(float tl, float tr, float br, float bl)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
-    m_doc->undoStack()->push(new SetCornerRadiusCmd(
-        m_doc, m_graphicId, m_elementId, tl, tr, br, bl
-    ));
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    m_doc->undoStack()->push(
+        new SetCornerRadiusCmd(m_doc, m_graphicId, m_elementId, tl, tr, br, bl));
 }

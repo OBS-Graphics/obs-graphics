@@ -2,8 +2,7 @@
 #include <QGridLayout>
 #include <QScreen>
 
-ColorPicker::ColorPicker(QWidget *parent)
-    : QWidget{parent}
+ColorPicker::ColorPicker(QWidget* parent) : QWidget{parent}
 {
     QGridLayout* layout = new QGridLayout(this);
     layout->setColumnStretch(0, 1);
@@ -36,12 +35,12 @@ QColor ColorPicker::color() const
     return computeColor();
 }
 
-void ColorPicker::setColor(const QColor &color)
+void ColorPicker::setColor(const QColor& color)
 {
     onColorEditChanged(color);
 }
 
-void ColorPicker::showPopup(QWidget *at)
+void ColorPicker::showPopup(QWidget* at)
 {
     auto* popup = new QWidget(nullptr, Qt::Popup | Qt::FramelessWindowHint);
     popup->setAttribute(Qt::WA_DeleteOnClose);
@@ -65,13 +64,13 @@ void ColorPicker::showPopup(QWidget *at)
 
     // Clamp to screen edges as a last resort
     pos.setX(qBound(screen.left(), pos.x(), screen.right() - popupSize.width()));
-    pos.setY(qBound(screen.top(),  pos.y(), screen.bottom() - popupSize.height()));
+    pos.setY(qBound(screen.top(), pos.y(), screen.bottom() - popupSize.height()));
 
     popup->move(pos);
     popup->show();
 }
 
-void ColorPicker::onColorWheelChanged(const QColor &color)
+void ColorPicker::onColorWheelChanged(const QColor& color)
 {
     m_alphaSlider->setStops({
         {0.0, QColor::fromRgb(color.red(), color.green(), color.blue(), 0)},
@@ -90,7 +89,7 @@ void ColorPicker::onAlphaSliderChanged(int value)
     emit colorChanged(computeColor());
 }
 
-void ColorPicker::onColorEditChanged(const QColor &color)
+void ColorPicker::onColorEditChanged(const QColor& color)
 {
     QColor colorNoAlpha = color;
     colorNoAlpha.setAlphaF(1.0f);

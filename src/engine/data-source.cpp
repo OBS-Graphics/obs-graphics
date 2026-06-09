@@ -22,7 +22,8 @@ std::vector<Record> JsonFileDataSource::GetData() const
     }
 
     for (const auto& item : j) {
-        if (!item.is_object()) continue;
+        if (!item.is_object())
+            continue;
 
         Record record;
         for (auto it = item.begin(); it != item.end(); ++it) {

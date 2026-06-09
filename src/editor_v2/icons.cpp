@@ -2,7 +2,7 @@
 
 static fa::QtAwesome* _icons = nullptr;
 
-fa::QtAwesome *qta()
+fa::QtAwesome* qta()
 {
     if (!_icons) {
         _icons = new fa::QtAwesome();

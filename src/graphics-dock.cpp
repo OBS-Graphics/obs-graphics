@@ -1,7 +1,7 @@
 #include "graphics-dock.h"
-#include "shared-scene.h"
 #include "app-config.h"
 #include "engine/data-source.h"
+#include "shared-scene.h"
 
 #include <QFileDialog>
 #include <QHeaderView>
@@ -10,15 +10,14 @@
 
 #include <filesystem>
 
-GraphicsDockWidget::GraphicsDockWidget(QWidget *parent, std::string configPath)
-    : QWidget(parent)
-    , m_configPath(std::move(configPath))
+GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configPath)
+    : QWidget(parent), m_configPath(std::move(configPath))
 {
-    auto *layout = new QVBoxLayout(this);
+    auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
     layout->setSpacing(4);
 
-    auto *toolbar = new QHBoxLayout();
+    auto* toolbar = new QHBoxLayout();
     m_loadBtn = new QPushButton("Load Scene...");
     connect(m_loadBtn, &QPushButton::clicked, this, &GraphicsDockWidget::onLoadClicked);
     toolbar->addWidget(m_loadBtn);
@@ -44,8 +43,8 @@ GraphicsDockWidget::GraphicsDockWidget(QWidget *parent, std::string configPath)
 
 void GraphicsDockWidget::onLoadClicked()
 {
-    QString path = QFileDialog::getOpenFileName(
-        this, "Load Scene", QString(), "JSON Files (*.json)");
+    QString path =
+        QFileDialog::getOpenFileName(this, "Load Scene", QString(), "JSON Files (*.json)");
     if (path.isEmpty())
         return;
 
@@ -53,8 +52,8 @@ void GraphicsDockWidget::onLoadClicked()
 
     {
         std::lock_guard<std::mutex> lock(g_scene_mutex);
-        g_active_scene  = std::move(loaded);
-        g_scene_loaded  = true;
+        g_active_scene = std::move(loaded);
+        g_scene_loaded = true;
     }
 
     m_scenePath = path.toStdString();
@@ -93,18 +92,18 @@ void GraphicsDockWidget::rebuildTable()
         rebuildDataSourceCell(row, i);
 
         bool isVisible = infos[i].isVisible;
-        auto *btn = new QPushButton(isVisible ? "Hide" : "Show");
+        auto* btn = new QPushButton(isVisible ? "Hide" : "Show");
         if (!isVisible) {
-            btn->setStyleSheet("QPushButton { background-color: #28752a; color: white; font-weight: bold; }");
+            btn->setStyleSheet(
+                "QPushButton { background-color: #28752a; color: white; font-weight: bold; }");
             btn->setIcon(this->style()->standardIcon(QStyle::SP_MediaPlay));
         } else {
-            btn->setStyleSheet("QPushButton { background-color: #b42218; color: white; font-weight: bold; }");
+            btn->setStyleSheet(
+                "QPushButton { background-color: #b42218; color: white; font-weight: bold; }");
             btn->setIcon(this->style()->standardIcon(QStyle::SP_MediaStop));
         }
 
-        connect(btn, &QPushButton::clicked, this, [this, i]() {
-            onToggleGraphic(i);
-        });
+        connect(btn, &QPushButton::clicked, this, [this, i]() { onToggleGraphic(i); });
         m_table->setCellWidget(row, 2, btn);
     }
 }
@@ -112,25 +111,24 @@ void GraphicsDockWidget::rebuildTable()
 void GraphicsDockWidget::rebuildDataSourceCell(int row, int graphicIndex)
 {
     if (!m_dataSources[graphicIndex]) {
-        auto *btn = new QPushButton();
+        auto* btn = new QPushButton();
         btn->setText("Load");
         btn->setIcon(style()->standardIcon(QStyle::SP_DirOpenIcon));
         btn->setToolTip("Load data source...");
-        connect(btn, &QPushButton::clicked, this, [this, graphicIndex]() {
-            onLoadDataSource(graphicIndex);
-        });
+        connect(btn, &QPushButton::clicked, this,
+                [this, graphicIndex]() { onLoadDataSource(graphicIndex); });
         m_table->setCellWidget(row, 1, btn);
         return;
     }
 
     auto records = m_dataSources[graphicIndex]->GetData();
 
-    auto *container = new QWidget();
-    auto *hbox = new QHBoxLayout(container);
+    auto* container = new QWidget();
+    auto* hbox = new QHBoxLayout(container);
     hbox->setContentsMargins(2, 2, 2, 2);
     hbox->setSpacing(4);
 
-    auto *combo = new QComboBox();
+    auto* combo = new QComboBox();
     for (int i = 0; i < (int)records.size(); ++i) {
         QString text;
         for (auto&& rec : records[i]) {
@@ -143,13 +141,12 @@ void GraphicsDockWidget::rebuildDataSourceCell(int row, int graphicIndex)
     connect(combo, &QComboBox::currentIndexChanged, this, [this](int) { saveConfig(); });
     hbox->addWidget(combo, 1);
 
-    auto *removeBtn = new QPushButton();
+    auto* removeBtn = new QPushButton();
     removeBtn->setFixedWidth(24);
     removeBtn->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
     removeBtn->setToolTip("Remove data source");
-    connect(removeBtn, &QPushButton::clicked, this, [this, graphicIndex]() {
-        onRemoveDataSource(graphicIndex);
-    });
+    connect(removeBtn, &QPushButton::clicked, this,
+            [this, graphicIndex]() { onRemoveDataSource(graphicIndex); });
     hbox->addWidget(removeBtn);
 
     m_table->setCellWidget(row, 1, container);
@@ -197,8 +194,8 @@ void GraphicsDockWidget::onRemoveDataSource(int graphicIndex)
 void GraphicsDockWidget::onToggleGraphic(int graphicIndex)
 {
     size_t recordIndex = 0;
-    if (auto *cell = m_table->cellWidget(graphicIndex, 1)) {
-        if (auto *combo = cell->findChild<QComboBox*>())
+    if (auto* cell = m_table->cellWidget(graphicIndex, 1)) {
+        if (auto* combo = cell->findChild<QComboBox*>())
             recordIndex = static_cast<size_t>(std::max(0, combo->currentIndex()));
     }
 
@@ -208,9 +205,8 @@ void GraphicsDockWidget::onToggleGraphic(int graphicIndex)
         if (graphicIndex < 0 || graphicIndex >= (int)g_active_scene.graphics.size())
             return;
 
-        Graphic &g = g_active_scene.graphics[graphicIndex];
-        bool isVisible = (g.state == GraphicState::Visible ||
-                          g.state == GraphicState::AnimatingIn);
+        Graphic& g = g_active_scene.graphics[graphicIndex];
+        bool isVisible = (g.state == GraphicState::Visible || g.state == GraphicState::AnimatingIn);
         if (isVisible) {
             g.TriggerOut();
             nowVisible = false;
@@ -220,13 +216,15 @@ void GraphicsDockWidget::onToggleGraphic(int graphicIndex)
         }
     }
 
-    if (auto *btn = qobject_cast<QPushButton *>(m_table->cellWidget(graphicIndex, 2))) {
+    if (auto* btn = qobject_cast<QPushButton*>(m_table->cellWidget(graphicIndex, 2))) {
         btn->setText(nowVisible ? "Hide" : "Show");
         if (nowVisible) {
-            btn->setStyleSheet("QPushButton { background-color: #b42218; color: white; font-weight: bold; }");
+            btn->setStyleSheet(
+                "QPushButton { background-color: #b42218; color: white; font-weight: bold; }");
             btn->setIcon(this->style()->standardIcon(QStyle::SP_MediaStop));
         } else {
-            btn->setStyleSheet("QPushButton { background-color: #28752a; color: white; font-weight: bold; }");
+            btn->setStyleSheet(
+                "QPushButton { background-color: #28752a; color: white; font-weight: bold; }");
             btn->setIcon(this->style()->standardIcon(QStyle::SP_MediaPlay));
         }
     }
@@ -241,8 +239,9 @@ void GraphicsDockWidget::saveConfig()
     cfg.scenePath = m_scenePath;
 
     for (int row = 0; row < m_table->rowCount(); ++row) {
-        auto *item = m_table->item(row, 0);
-        if (!item) continue;
+        auto* item = m_table->item(row, 0);
+        if (!item)
+            continue;
         std::string id = item->text().toStdString();
 
         if (row < (int)m_dataSources.size() && m_dataSources[row]) {
@@ -251,8 +250,8 @@ void GraphicsDockWidget::saveConfig()
             cfg.dataSources[id] = {path, type};
         }
 
-        if (auto *cell = m_table->cellWidget(row, 1)) {
-            if (auto *combo = cell->findChild<QComboBox*>())
+        if (auto* cell = m_table->cellWidget(row, 1)) {
+            if (auto* combo = cell->findChild<QComboBox*>())
                 cfg.selectedRecords[id] = combo->currentIndex();
         }
     }
@@ -284,13 +283,16 @@ void GraphicsDockWidget::loadConfig()
     rebuildTable();
 
     for (int row = 0; row < m_table->rowCount(); ++row) {
-        auto *item = m_table->item(row, 0);
-        if (!item) continue;
+        auto* item = m_table->item(row, 0);
+        if (!item)
+            continue;
         std::string id = item->text().toStdString();
 
         auto dsIt = cfg.dataSources.find(id);
-        if (dsIt == cfg.dataSources.end()) continue;
-        if (!std::filesystem::exists(dsIt->second.path)) continue;
+        if (dsIt == cfg.dataSources.end())
+            continue;
+        if (!std::filesystem::exists(dsIt->second.path))
+            continue;
 
         std::unique_ptr<IDataSource> ds;
         if (dsIt->second.type == "csv")
@@ -308,8 +310,8 @@ void GraphicsDockWidget::loadConfig()
 
         auto recIt = cfg.selectedRecords.find(id);
         if (recIt != cfg.selectedRecords.end()) {
-            if (auto *cell = m_table->cellWidget(row, 1)) {
-                if (auto *combo = cell->findChild<QComboBox*>())
+            if (auto* cell = m_table->cellWidget(row, 1)) {
+                if (auto* combo = cell->findChild<QComboBox*>())
                     combo->setCurrentIndex(recIt->second);
             }
         }

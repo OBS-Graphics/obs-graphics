@@ -26,8 +26,8 @@ static void insertElementFromJson(Graphic& g, const json& ej)
 {
     // Build a temporary graphic envelope and use Scene::LoadString
     json gWrapper;
-    gWrapper["id"]       = g.id;
-    gWrapper["z_order"]  = g.zOrder;
+    gWrapper["id"] = g.id;
+    gWrapper["z_order"] = g.zOrder;
     gWrapper["elements"] = json::array({ej});
 
     json wrapper;
@@ -37,7 +37,7 @@ static void insertElementFromJson(Graphic& g, const json& ej)
         // Clear the pointer fixup — the real graphic already has existing
         // elements so raw pointers from the temp scene are invalid.
         Element newEl = std::move(tmp.graphics[0].elements[0]);
-        newEl.mask   = nullptr;
+        newEl.mask = nullptr;
         newEl.parent = nullptr;
         g.elements.push_back(std::move(newEl));
     }
@@ -47,41 +47,36 @@ static void insertElementFromJson(Graphic& g, const json& ej)
 // SetSceneDimensionsCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetSceneDimensionsCmd::SetSceneDimensionsCmd(SceneDocument* doc,
-                                             int             width,
-                                             int             height,
-                                             QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_beforeW(doc->scene().width)
-    , m_beforeH(doc->scene().height)
-    , m_afterW(width)
-    , m_afterH(height)
+SetSceneDimensionsCmd::SetSceneDimensionsCmd(SceneDocument* doc, int width, int height,
+                                             QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_beforeW(doc->scene().width),
+      m_beforeH(doc->scene().height), m_afterW(width), m_afterH(height)
 {
     setText("Set scene dimensions");
 }
 
 void SetSceneDimensionsCmd::undo()
 {
-    m_doc->applyMutation([&](Scene& s) { s.width = m_beforeW; s.height = m_beforeH; });
+    m_doc->applyMutation([&](Scene& s) {
+        s.width = m_beforeW;
+        s.height = m_beforeH;
+    });
 }
 
 void SetSceneDimensionsCmd::redo()
 {
-    m_doc->applyMutation([&](Scene& s) { s.width = m_afterW; s.height = m_afterH; });
+    m_doc->applyMutation([&](Scene& s) {
+        s.width = m_afterW;
+        s.height = m_afterH;
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SetSceneNameCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetSceneNameCmd::SetSceneNameCmd(SceneDocument* doc,
-                                 const QString& after,
-                                 QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_before(doc->sceneName())
-    , m_after(after)
+SetSceneNameCmd::SetSceneNameCmd(SceneDocument* doc, const QString& after, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_before(doc->sceneName()), m_after(after)
 {
     setText("Set scene name");
 }
@@ -100,24 +95,17 @@ void SetSceneNameCmd::redo()
 // SetElementPaintCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetElementPaintCmd::SetElementPaintCmd(SceneDocument* doc,
-                                       std::string     gi,
-                                       std::string     ei,
-                                       Target          target,
-                                       const Paint&    after,
-                                       QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_ei(std::move(ei))
-    , m_target(target)
-    , m_after(after)
+SetElementPaintCmd::SetElementPaintCmd(SceneDocument* doc, std::string gi, std::string ei,
+                                       Target target, const Paint& after, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_ei(std::move(ei)), m_target(target),
+      m_after(after)
 {
     setText(target == Target::Fill ? "Set fill" : "Set stroke");
 
     try {
         m_before = paintRef(m_doc->scene().GetById(m_gi).GetById(m_ei));
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 }
 
 Paint& SetElementPaintCmd::paintRef(Element& el) const
@@ -128,16 +116,20 @@ Paint& SetElementPaintCmd::paintRef(Element& el) const
 void SetElementPaintCmd::undo()
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { paintRef(s.GetById(m_gi).GetById(m_ei)) = m_before; }
-        catch (const std::runtime_error&) {}
+        try {
+            paintRef(s.GetById(m_gi).GetById(m_ei)) = m_before;
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
 void SetElementPaintCmd::redo()
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { paintRef(s.GetById(m_gi).GetById(m_ei)) = m_after; }
-        catch (const std::runtime_error&) {}
+        try {
+            paintRef(s.GetById(m_gi).GetById(m_ei)) = m_after;
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -145,24 +137,17 @@ void SetElementPaintCmd::redo()
 // SetElementAnimCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetElementAnimCmd::SetElementAnimCmd(SceneDocument*     doc,
-                                     std::string         gi,
-                                     std::string         ei,
-                                     Target              target,
-                                     const AnimationDef& after,
-                                     QUndoCommand*      parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_ei(std::move(ei))
-    , m_target(target)
-    , m_after(after)
+SetElementAnimCmd::SetElementAnimCmd(SceneDocument* doc, std::string gi, std::string ei,
+                                     Target target, const AnimationDef& after, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_ei(std::move(ei)), m_target(target),
+      m_after(after)
 {
     setText(target == Target::AnimIn ? "Set anim in" : "Set anim out");
 
     try {
         m_before = animRef(m_doc->scene().GetById(m_gi).GetById(m_ei));
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 }
 
 AnimationDef& SetElementAnimCmd::animRef(Element& el) const
@@ -173,16 +158,20 @@ AnimationDef& SetElementAnimCmd::animRef(Element& el) const
 void SetElementAnimCmd::undo()
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { animRef(s.GetById(m_gi).GetById(m_ei)) = m_before; }
-        catch (const std::runtime_error&) {}
+        try {
+            animRef(s.GetById(m_gi).GetById(m_ei)) = m_before;
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
 void SetElementAnimCmd::redo()
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { animRef(s.GetById(m_gi).GetById(m_ei)) = m_after; }
-        catch (const std::runtime_error&) {}
+        try {
+            animRef(s.GetById(m_gi).GetById(m_ei)) = m_after;
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -190,25 +179,24 @@ void SetElementAnimCmd::redo()
 // SetChildrenPaddingCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetChildrenPaddingCmd::SetChildrenPaddingCmd(SceneDocument* doc,
-                                             std::string     gi,
-                                             std::string     ei,
+SetChildrenPaddingCmd::SetChildrenPaddingCmd(SceneDocument* doc, std::string gi, std::string ei,
                                              float top, float right, float bottom, float left,
-                                             QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_ei(std::move(ei))
+                                             QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_ei(std::move(ei))
 {
     setText("Set children padding");
-    m_after[0] = top; m_after[1] = right; m_after[2] = bottom; m_after[3] = left;
+    m_after[0] = top;
+    m_after[1] = right;
+    m_after[2] = bottom;
+    m_after[3] = left;
 
     try {
         const Element& el = m_doc->scene().GetById(m_gi).GetById(m_ei);
         for (int i = 0; i < 4; ++i)
             m_before[i] = el.childrenPadding[i];
     } catch (const std::runtime_error&) {
-        for (int i = 0; i < 4; ++i) m_before[i] = 0.f;
+        for (int i = 0; i < 4; ++i)
+            m_before[i] = 0.f;
     }
 }
 
@@ -219,7 +207,8 @@ void SetChildrenPaddingCmd::undo()
             Element& el = s.GetById(m_gi).GetById(m_ei);
             for (int i = 0; i < 4; ++i)
                 el.childrenPadding[i] = m_before[i];
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -230,7 +219,8 @@ void SetChildrenPaddingCmd::redo()
             Element& el = s.GetById(m_gi).GetById(m_ei);
             for (int i = 0; i < 4; ++i)
                 el.childrenPadding[i] = m_after[i];
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -238,25 +228,23 @@ void SetChildrenPaddingCmd::redo()
 // SetCornerRadiusCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-SetCornerRadiusCmd::SetCornerRadiusCmd(SceneDocument* doc,
-                                       std::string     gi,
-                                       std::string     ei,
-                                       float tl, float tr, float br, float bl,
-                                       QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_ei(std::move(ei))
+SetCornerRadiusCmd::SetCornerRadiusCmd(SceneDocument* doc, std::string gi, std::string ei, float tl,
+                                       float tr, float br, float bl, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_ei(std::move(ei))
 {
     setText("Set corner radius");
-    m_after[0] = tl; m_after[1] = tr; m_after[2] = br; m_after[3] = bl;
+    m_after[0] = tl;
+    m_after[1] = tr;
+    m_after[2] = br;
+    m_after[3] = bl;
 
     try {
         const Element& el = m_doc->scene().GetById(m_gi).GetById(m_ei);
         for (int i = 0; i < 4; ++i)
             m_before[i] = static_cast<float>(el.cornerRadius[i]);
     } catch (const std::runtime_error&) {
-        for (int i = 0; i < 4; ++i) m_before[i] = 0.f;
+        for (int i = 0; i < 4; ++i)
+            m_before[i] = 0.f;
     }
 }
 
@@ -267,7 +255,8 @@ void SetCornerRadiusCmd::undo()
             Element& el = s.GetById(m_gi).GetById(m_ei);
             for (int i = 0; i < 4; ++i)
                 el.cornerRadius[i] = m_before[i];
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -278,7 +267,8 @@ void SetCornerRadiusCmd::redo()
             Element& el = s.GetById(m_gi).GetById(m_ei);
             for (int i = 0; i < 4; ++i)
                 el.cornerRadius[i] = m_after[i];
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -286,14 +276,9 @@ void SetCornerRadiusCmd::redo()
 // RenameGraphicCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-RenameGraphicCmd::RenameGraphicCmd(SceneDocument* doc,
-                                   std::string     before,
-                                   std::string     after,
-                                   QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_before(std::move(before))
-    , m_after(std::move(after))
+RenameGraphicCmd::RenameGraphicCmd(SceneDocument* doc, std::string before, std::string after,
+                                   QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_before(std::move(before)), m_after(std::move(after))
 {
     setText("Rename graphic");
 }
@@ -301,26 +286,29 @@ RenameGraphicCmd::RenameGraphicCmd(SceneDocument* doc,
 void RenameGraphicCmd::applyRename(const std::string& from, const std::string& to)
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { s.GetById(from).id = to; }
-        catch (const std::runtime_error&) {}
+        try {
+            s.GetById(from).id = to;
+        } catch (const std::runtime_error&) {
+        }
     });
     m_doc->renameGraphicRef(from, to);
 }
 
-void RenameGraphicCmd::undo() { applyRename(m_after,  m_before); }
-void RenameGraphicCmd::redo() { applyRename(m_before, m_after);  }
+void RenameGraphicCmd::undo()
+{
+    applyRename(m_after, m_before);
+}
+void RenameGraphicCmd::redo()
+{
+    applyRename(m_before, m_after);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AddGraphicCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-AddGraphicCmd::AddGraphicCmd(SceneDocument* doc,
-                             json            graphicJson,
-                             QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_json(std::move(graphicJson))
-    , m_id(m_json.value("id", ""))
+AddGraphicCmd::AddGraphicCmd(SceneDocument* doc, json graphicJson, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_json(std::move(graphicJson)), m_id(m_json.value("id", ""))
 {
     setText("Add graphic");
 }
@@ -337,23 +325,15 @@ void AddGraphicCmd::undo()
 
 void AddGraphicCmd::redo()
 {
-    m_doc->applyMutation([&](Scene& s) {
-        insertGraphicFromJson(s, m_json);
-    });
+    m_doc->applyMutation([&](Scene& s) { insertGraphicFromJson(s, m_json); });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RemoveGraphicCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-RemoveGraphicCmd::RemoveGraphicCmd(SceneDocument* doc,
-                                   std::string     gi,
-                                   QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_savedZOrder(0)
-    , m_savedPosition(-1)
+RemoveGraphicCmd::RemoveGraphicCmd(SceneDocument* doc, std::string gi, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_savedZOrder(0), m_savedPosition(-1)
 {
     setText("Remove graphic");
 
@@ -371,7 +351,8 @@ RemoveGraphicCmd::RemoveGraphicCmd(SceneDocument* doc,
             if (m_savedPosition < static_cast<int>(garr.size()))
                 m_snapshot = garr[m_savedPosition];
         }
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 }
 
 void RemoveGraphicCmd::undo()
@@ -381,8 +362,7 @@ void RemoveGraphicCmd::undo()
         if (m_savedPosition >= 0) {
             int last = static_cast<int>(s.graphics.size()) - 1;
             if (last > m_savedPosition) {
-                std::rotate(s.graphics.begin() + m_savedPosition,
-                            s.graphics.end()   - 1,
+                std::rotate(s.graphics.begin() + m_savedPosition, s.graphics.end() - 1,
                             s.graphics.end());
             }
         }
@@ -390,8 +370,8 @@ void RemoveGraphicCmd::undo()
     // Restore mask/parent logical refs for all elements in the snapshot
     if (m_snapshot.contains("elements")) {
         for (const auto& ej : m_snapshot["elements"]) {
-            std::string eid      = ej.value("id",     "");
-            std::string maskId   = ej.value("mask",   "");
+            std::string eid = ej.value("id", "");
+            std::string maskId = ej.value("mask", "");
             std::string parentId = ej.value("parent", "");
             if (!eid.empty() && (!maskId.empty() || !parentId.empty()))
                 m_doc->setElementRef(m_gi, eid, maskId, parentId);
@@ -413,15 +393,10 @@ void RemoveGraphicCmd::redo()
 // AddElementCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-AddElementCmd::AddElementCmd(SceneDocument* doc,
-                             std::string     gi,
-                             json            elementJson,
-                             QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_json(std::move(elementJson))
-    , m_id(m_json.value("id", ""))
+AddElementCmd::AddElementCmd(SceneDocument* doc, std::string gi, json elementJson,
+                             QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_json(std::move(elementJson)),
+      m_id(m_json.value("id", ""))
 {
     setText("Add element");
 }
@@ -435,15 +410,18 @@ void AddElementCmd::undo()
                                    [&](const Element& el) { return el.id == m_id; });
             if (it != g.elements.end())
                 g.elements.erase(it);
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
 void AddElementCmd::redo()
 {
     m_doc->applyMutation([&](Scene& s) {
-        try { insertElementFromJson(s.GetById(m_gi), m_json); }
-        catch (const std::runtime_error&) {}
+        try {
+            insertElementFromJson(s.GetById(m_gi), m_json);
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -451,15 +429,10 @@ void AddElementCmd::redo()
 // RemoveElementCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-RemoveElementCmd::RemoveElementCmd(SceneDocument* doc,
-                                   std::string     gi,
-                                   std::string     ei,
-                                   QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_ei(std::move(ei))
-    , m_savedPosition(-1)
+RemoveElementCmd::RemoveElementCmd(SceneDocument* doc, std::string gi, std::string ei,
+                                   QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_ei(std::move(ei)),
+      m_savedPosition(-1)
 {
     setText("Remove element");
 
@@ -484,7 +457,8 @@ RemoveElementCmd::RemoveElementCmd(SceneDocument* doc,
                 }
             }
         }
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 }
 
 void RemoveElementCmd::undo()
@@ -496,15 +470,15 @@ void RemoveElementCmd::undo()
             if (m_savedPosition >= 0) {
                 int last = static_cast<int>(g.elements.size()) - 1;
                 if (last > m_savedPosition) {
-                    std::rotate(g.elements.begin() + m_savedPosition,
-                                g.elements.end()   - 1,
+                    std::rotate(g.elements.begin() + m_savedPosition, g.elements.end() - 1,
                                 g.elements.end());
                 }
             }
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
     // Restore mask/parent logical refs that insertElementFromJson cleared
-    const std::string maskId   = m_snapshot.value("mask",   "");
+    const std::string maskId = m_snapshot.value("mask", "");
     const std::string parentId = m_snapshot.value("parent", "");
     if (!maskId.empty() || !parentId.empty())
         m_doc->setElementRef(m_gi, m_ei, maskId, parentId);
@@ -519,7 +493,8 @@ void RemoveElementCmd::redo()
                                    [&](const Element& el) { return el.id == m_ei; });
             if (it != g.elements.end())
                 g.elements.erase(it);
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
@@ -527,14 +502,8 @@ void RemoveElementCmd::redo()
 // MoveGraphicCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-MoveGraphicCmd::MoveGraphicCmd(SceneDocument* doc,
-                               int             fromIndex,
-                               int             toIndex,
-                               QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_from(fromIndex)
-    , m_to(toIndex)
+MoveGraphicCmd::MoveGraphicCmd(SceneDocument* doc, int fromIndex, int toIndex, QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_from(fromIndex), m_to(toIndex)
 {
     setText("Move graphic");
 }
@@ -546,33 +515,30 @@ void MoveGraphicCmd::doMove(int from, int to)
         if (from < 0 || from >= n || to < 0 || to >= n || from == to)
             return;
         if (from < to)
-            std::rotate(s.graphics.begin() + from,
-                        s.graphics.begin() + from + 1,
+            std::rotate(s.graphics.begin() + from, s.graphics.begin() + from + 1,
                         s.graphics.begin() + to + 1);
         else
-            std::rotate(s.graphics.begin() + to,
-                        s.graphics.begin() + from,
+            std::rotate(s.graphics.begin() + to, s.graphics.begin() + from,
                         s.graphics.begin() + from + 1);
     });
 }
 
-void MoveGraphicCmd::undo() { doMove(m_to, m_from); }
-void MoveGraphicCmd::redo() { doMove(m_from, m_to); }
+void MoveGraphicCmd::undo()
+{
+    doMove(m_to, m_from);
+}
+void MoveGraphicCmd::redo()
+{
+    doMove(m_from, m_to);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MoveElementCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
-MoveElementCmd::MoveElementCmd(SceneDocument* doc,
-                               std::string     gi,
-                               int             fromIndex,
-                               int             toIndex,
-                               QUndoCommand*  parent)
-    : QUndoCommand(parent)
-    , m_doc(doc)
-    , m_gi(std::move(gi))
-    , m_from(fromIndex)
-    , m_to(toIndex)
+MoveElementCmd::MoveElementCmd(SceneDocument* doc, std::string gi, int fromIndex, int toIndex,
+                               QUndoCommand* parent)
+    : QUndoCommand(parent), m_doc(doc), m_gi(std::move(gi)), m_from(fromIndex), m_to(toIndex)
 {
     setText("Move element");
 }
@@ -586,16 +552,21 @@ void MoveElementCmd::doMove(int from, int to)
             if (from < 0 || from >= n || to < 0 || to >= n || from == to)
                 return;
             if (from < to)
-                std::rotate(g.elements.begin() + from,
-                            g.elements.begin() + from + 1,
+                std::rotate(g.elements.begin() + from, g.elements.begin() + from + 1,
                             g.elements.begin() + to + 1);
             else
-                std::rotate(g.elements.begin() + to,
-                            g.elements.begin() + from,
+                std::rotate(g.elements.begin() + to, g.elements.begin() + from,
                             g.elements.begin() + from + 1);
-        } catch (const std::runtime_error&) {}
+        } catch (const std::runtime_error&) {
+        }
     });
 }
 
-void MoveElementCmd::undo() { doMove(m_to, m_from); }
-void MoveElementCmd::redo() { doMove(m_from, m_to); }
+void MoveElementCmd::undo()
+{
+    doMove(m_to, m_from);
+}
+void MoveElementCmd::redo()
+{
+    doMove(m_from, m_to);
+}

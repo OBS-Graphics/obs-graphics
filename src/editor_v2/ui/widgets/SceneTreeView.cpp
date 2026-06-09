@@ -1,8 +1,8 @@
 #include "SceneTreeView.h"
 #include "SceneTreeModel.h"
 
-#include "model/SceneDocument.h"
 #include "model/EditorScene.h"
+#include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
 
 #include "engine/json.hpp"
@@ -12,13 +12,9 @@
 #include <QItemSelectionModel>
 #include <QMenu>
 
-SceneTreeView::SceneTreeView(SceneDocument* doc,
-                             EditorScene*   editorScene,
-                             QWidget*       parent)
-    : QTreeView(parent)
-    , m_doc(doc)
-    , m_editorScene(editorScene)
-    , m_model(new SceneTreeModel(doc, this))
+SceneTreeView::SceneTreeView(SceneDocument* doc, EditorScene* editorScene, QWidget* parent)
+    : QTreeView(parent), m_doc(doc), m_editorScene(editorScene),
+      m_model(new SceneTreeModel(doc, this))
 {
     setModel(m_model);
     setHeaderHidden(true);
@@ -32,15 +28,13 @@ SceneTreeView::SceneTreeView(SceneDocument* doc,
     expandAll();
 
     // Keep tree expanded after model resets
-    connect(m_model, &QAbstractItemModel::modelReset, this, [this]() {
-        expandAll();
-    });
+    connect(m_model, &QAbstractItemModel::modelReset, this, [this]() { expandAll(); });
 
-    connect(selectionModel(), &QItemSelectionModel::selectionChanged,
-            this, &SceneTreeView::onViewSelectionChanged);
+    connect(selectionModel(), &QItemSelectionModel::selectionChanged, this,
+            &SceneTreeView::onViewSelectionChanged);
 
-    connect(m_editorScene, &EditorScene::selectionChanged,
-            this, &SceneTreeView::onEditorSelectionChanged);
+    connect(m_editorScene, &EditorScene::selectionChanged, this,
+            &SceneTreeView::onEditorSelectionChanged);
 }
 
 void SceneTreeView::onViewSelectionChanged(const QItemSelection& selected,
@@ -116,8 +110,8 @@ void SceneTreeView::contextMenuEvent(QContextMenuEvent* event)
         m_doc->undoStack()->push(new AddElementCmd(m_doc, gid, std::move(j)));
 
         // Expand the parent graphic node
-        QModelIndex graphicIdx = m_model->indexForSelection(
-            SelectionId{SelectionId::Level::Graphic, gi, -1});
+        QModelIndex graphicIdx =
+            m_model->indexForSelection(SelectionId{SelectionId::Level::Graphic, gi, -1});
         expand(graphicIdx);
     });
 
@@ -133,8 +127,8 @@ void SceneTreeView::contextMenuEvent(QContextMenuEvent* event)
         m_doc->undoStack()->push(new AddElementCmd(m_doc, gid, std::move(j)));
 
         // Expand the parent graphic node
-        QModelIndex graphicIdx = m_model->indexForSelection(
-            SelectionId{SelectionId::Level::Graphic, gi, -1});
+        QModelIndex graphicIdx =
+            m_model->indexForSelection(SelectionId{SelectionId::Level::Graphic, gi, -1});
         expand(graphicIdx);
     });
 

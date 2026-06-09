@@ -6,8 +6,10 @@ class GradientSlider : public QSlider {
 public:
     explicit GradientSlider(QWidget* parent = nullptr);
     void setStops(const QGradientStops& stops);
+
 protected:
     void paintEvent(QPaintEvent*) override;
+
 private:
     QGradientStops m_stops;
 };

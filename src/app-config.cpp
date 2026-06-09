@@ -23,11 +23,9 @@ AppConfig AppConfig::Load(const std::string& configPath)
 
     if (j.contains("data_sources") && j["data_sources"].is_object()) {
         for (auto& [id, dsj] : j["data_sources"].items()) {
-            if (!dsj.is_object()) continue;
-            cfg.dataSources[id] = {
-                dsj.value("path", ""),
-                dsj.value("type", "json")
-            };
+            if (!dsj.is_object())
+                continue;
+            cfg.dataSources[id] = {dsj.value("path", ""), dsj.value("type", "json")};
         }
     }
 

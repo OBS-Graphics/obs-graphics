@@ -2,12 +2,9 @@
 #include "SceneDocument.h"
 #include "engine/scene.h"
 
-EditorScene::EditorScene(SceneDocument* doc, QObject* parent)
-    : QObject(parent)
-    , m_doc(doc)
+EditorScene::EditorScene(SceneDocument* doc, QObject* parent) : QObject(parent), m_doc(doc)
 {
-    connect(m_doc, &SceneDocument::documentChanged,
-            this,  &EditorScene::validateSelection);
+    connect(m_doc, &SceneDocument::documentChanged, this, &EditorScene::validateSelection);
 }
 
 void EditorScene::validateSelection()
@@ -20,7 +17,8 @@ void EditorScene::validateSelection()
             setSelection(SelectionId{});
     } else if (cur.level == SelectionId::Level::Element) {
         if (cur.graphicIndex < 0 || cur.graphicIndex >= (int)s.graphics.size() ||
-            cur.elementIndex < 0 || cur.elementIndex >= (int)s.graphics[cur.graphicIndex].elements.size())
+            cur.elementIndex < 0 ||
+            cur.elementIndex >= (int)s.graphics[cur.graphicIndex].elements.size())
             setSelection(SelectionId{});
     }
 }

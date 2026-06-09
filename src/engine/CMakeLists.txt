@@ -29,4 +29,4 @@ target_compile_options(engine PRIVATE
     ${CAIRO_CFLAGS_OTHER}
 )
 
-target_compile_features(engine PUBLIC cxx_std_17)
+target_compile_features(engine PUBLIC cxx_std_20)

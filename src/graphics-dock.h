@@ -2,12 +2,12 @@
 
 #include "engine/data-source.h"
 
-#include <QWidget>
 #include <QComboBox>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
+#include <QWidget>
 
 #include <memory>
 #include <string>
@@ -16,7 +16,7 @@
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit GraphicsDockWidget(QWidget *parent, std::string configPath);
+    explicit GraphicsDockWidget(QWidget* parent, std::string configPath);
 
 private slots:
     void onLoadClicked();
@@ -30,12 +30,12 @@ private:
     void saveConfig();
     void loadConfig();
 
-    QPushButton  *m_loadBtn;
-    QTableWidget *m_table;
+    QPushButton* m_loadBtn;
+    QTableWidget* m_table;
 
     std::vector<std::unique_ptr<IDataSource>> m_dataSources;
 
     std::string m_configPath;
     std::string m_scenePath;
-    bool        m_loading{false};
+    bool m_loading{false};
 };

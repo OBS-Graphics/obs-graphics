@@ -21,13 +21,17 @@ private slots:
 
 private:
     SceneDocument* m_doc;
-    QLineEdit*     m_nameEdit;
-    QComboBox*     m_presetCombo;
-    QSpinBox*      m_widthSpin;
-    QSpinBox*      m_heightSpin;
-    bool           m_updating{false};
+    QLineEdit* m_nameEdit;
+    QComboBox* m_presetCombo;
+    QSpinBox* m_widthSpin;
+    QSpinBox* m_heightSpin;
+    bool m_updating{false};
 
-    struct Preset { const char* label; int w; int h; };
+    struct Preset {
+        const char* label;
+        int w;
+        int h;
+    };
     static const Preset kPresets[];
     static constexpr int kCustomIndex = 5;
 

@@ -4,15 +4,14 @@
 #include <QList>
 #include <QWidget>
 
-class AdaptiveStack : public QWidget
-{
+class AdaptiveStack : public QWidget {
     Q_OBJECT
 public:
-    explicit AdaptiveStack(QWidget *parent = nullptr);
-    void addWidget(QWidget *w);
+    explicit AdaptiveStack(QWidget* parent = nullptr);
+    void addWidget(QWidget* w);
     void setCurrentIndex(int index);
     int currentIndex() const;
-    QWidget *currentWidget() const;
+    QWidget* currentWidget() const;
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
@@ -21,10 +20,10 @@ signals:
     void currentChanged(int index);
 
 protected:
-    void resizeEvent(QResizeEvent *) override;
+    void resizeEvent(QResizeEvent*) override;
 
 private:
-    QList<QWidget *> m_pages;
+    QList<QWidget*> m_pages;
     int m_current = -1;
 };
 

@@ -1,15 +1,17 @@
 #include "ColorLineEdit.h"
-#include <QTimer>
 #include <QRegularExpression>
+#include <QTimer>
 
-ColorLineEdit::ColorLineEdit(QWidget* parent)
-    : QLineEdit(parent)
+ColorLineEdit::ColorLineEdit(QWidget* parent) : QLineEdit(parent)
 {
     connect(this, &QLineEdit::editingFinished, this, &ColorLineEdit::onEditingFinished);
     setColor(Qt::black);
 }
 
-QColor ColorLineEdit::color() const { return m_color; }
+QColor ColorLineEdit::color() const
+{
+    return m_color;
+}
 
 void ColorLineEdit::setColor(const QColor& c)
 {
@@ -17,23 +19,24 @@ void ColorLineEdit::setColor(const QColor& c)
     m_updating = true;
     if (c.alpha() < 255)
         setText(QString("#%1%2%3%4")
-            .arg(c.alpha(), 2, 16, QChar('0'))
-            .arg(c.red(),   2, 16, QChar('0'))
-            .arg(c.green(), 2, 16, QChar('0'))
-            .arg(c.blue(),  2, 16, QChar('0'))
-            .toUpper());
+                    .arg(c.alpha(), 2, 16, QChar('0'))
+                    .arg(c.red(), 2, 16, QChar('0'))
+                    .arg(c.green(), 2, 16, QChar('0'))
+                    .arg(c.blue(), 2, 16, QChar('0'))
+                    .toUpper());
     else
         setText(QString("#%1%2%3")
-            .arg(c.red(),   2, 16, QChar('0'))
-            .arg(c.green(), 2, 16, QChar('0'))
-            .arg(c.blue(),  2, 16, QChar('0'))
-            .toUpper());
+                    .arg(c.red(), 2, 16, QChar('0'))
+                    .arg(c.green(), 2, 16, QChar('0'))
+                    .arg(c.blue(), 2, 16, QChar('0'))
+                    .toUpper());
     m_updating = false;
 }
 
 void ColorLineEdit::onEditingFinished()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     QColor c = parse(text().trimmed());
     if (c.isValid()) {
         m_color = c;
@@ -41,7 +44,7 @@ void ColorLineEdit::onEditingFinished()
         emit colorChanged(c);
     } else {
         setStyleSheet("background: #ffcccc;");
-        QTimer::singleShot(600, this, [this]{ setStyleSheet(""); });
+        QTimer::singleShot(600, this, [this] { setStyleSheet(""); });
     }
 }
 
@@ -56,11 +59,13 @@ QColor ColorLineEdit::parse(const QString& text)
         int r = m.captured(1).toInt();
         int g = m.captured(2).toInt();
         int b = m.captured(3).toInt();
-        if (r > 255 || g > 255 || b > 255) return {};
+        if (r > 255 || g > 255 || b > 255)
+            return {};
         return QColor(r, g, b);
     }
 
-    if (!t.startsWith('#')) return {};
+    if (!t.startsWith('#'))
+        return {};
     QString hex = t.mid(1);
 
     if (hex.length() == 3) {
@@ -78,9 +83,11 @@ QColor ColorLineEdit::parse(const QString& text)
         // #AARRGGBB — first 2 digits are alpha
         bool ok;
         int a = hex.left(2).toInt(&ok, 16);
-        if (!ok) return {};
+        if (!ok)
+            return {};
         QColor c('#' + hex.mid(2));
-        if (!c.isValid()) return {};
+        if (!c.isValid())
+            return {};
         c.setAlpha(a);
         return c;
     }

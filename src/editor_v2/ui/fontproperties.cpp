@@ -1,14 +1,15 @@
 #include "fontproperties.h"
+#include "engine/element.h"
+#include "engine/graphic.h"
+#include "engine/scene.h"
 #include "icons.h"
 #include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
-#include "engine/scene.h"
-#include "engine/graphic.h"
-#include "engine/element.h"
 
 #include <QAbstractItemView>
+#include <QActionGroup>
+#include <QButtonGroup>
 #include <QCompleter>
-#include <QStyledItemDelegate>
 #include <QFileDialog>
 #include <QFont>
 #include <QFontDatabase>
@@ -16,16 +17,14 @@
 #include <QGroupBox>
 #include <QStandardItem>
 #include <QStandardItemModel>
+#include <QStyledItemDelegate>
 #include <QVBoxLayout>
-#include <QActionGroup>
-#include <QButtonGroup>
 
 // Paints each font item in its own typeface, constructing QFont only when visible.
 class FontItemDelegate : public QStyledItemDelegate {
 public:
     using QStyledItemDelegate::QStyledItemDelegate;
-    void paint(QPainter* p, const QStyleOptionViewItem& opt,
-               const QModelIndex& idx) const override
+    void paint(QPainter* p, const QStyleOptionViewItem& opt, const QModelIndex& idx) const override
     {
         QStyleOptionViewItem o = opt;
         initStyleOption(&o, idx);
@@ -45,42 +44,63 @@ static QGroupBox* makeGroup(const QString& title)
 
 static int weightToIndex(FontWeight w)
 {
-    // Must match combo items in order: Thin UltraLight Light Regular Medium SemiBold Bold UltraBold Heavy UltraHeavy
+    // Must match combo items in order: Thin UltraLight Light Regular Medium SemiBold Bold UltraBold
+    // Heavy UltraHeavy
     switch (static_cast<int>(w)) {
-    case PANGO_WEIGHT_THIN:       return 0;
-    case PANGO_WEIGHT_ULTRALIGHT: return 1;
-    case PANGO_WEIGHT_LIGHT:      return 2;
-    case PANGO_WEIGHT_NORMAL:     return 3;
-    case PANGO_WEIGHT_MEDIUM:     return 4;
-    case PANGO_WEIGHT_SEMIBOLD:   return 5;
-    case PANGO_WEIGHT_BOLD:       return 6;
-    case PANGO_WEIGHT_ULTRABOLD:  return 7;
-    case PANGO_WEIGHT_HEAVY:      return 8;
-    case PANGO_WEIGHT_ULTRAHEAVY: return 9;
-    default:                      return 3;
+    case PANGO_WEIGHT_THIN:
+        return 0;
+    case PANGO_WEIGHT_ULTRALIGHT:
+        return 1;
+    case PANGO_WEIGHT_LIGHT:
+        return 2;
+    case PANGO_WEIGHT_NORMAL:
+        return 3;
+    case PANGO_WEIGHT_MEDIUM:
+        return 4;
+    case PANGO_WEIGHT_SEMIBOLD:
+        return 5;
+    case PANGO_WEIGHT_BOLD:
+        return 6;
+    case PANGO_WEIGHT_ULTRABOLD:
+        return 7;
+    case PANGO_WEIGHT_HEAVY:
+        return 8;
+    case PANGO_WEIGHT_ULTRAHEAVY:
+        return 9;
+    default:
+        return 3;
     }
 }
 
 static FontWeight indexToWeight(int i)
 {
     switch (i) {
-    case 0:  return FontWeight::Thin;
-    case 1:  return FontWeight::UltraLight;
-    case 2:  return FontWeight::Light;
-    case 3:  return FontWeight::Normal;
-    case 4:  return FontWeight::Medium;
-    case 5:  return FontWeight::SemiBold;
-    case 6:  return FontWeight::Bold;
-    case 7:  return FontWeight::UltraBold;
-    case 8:  return FontWeight::Heavy;
-    case 9:  return FontWeight::UltraHeavy;
-    default: return FontWeight::Normal;
+    case 0:
+        return FontWeight::Thin;
+    case 1:
+        return FontWeight::UltraLight;
+    case 2:
+        return FontWeight::Light;
+    case 3:
+        return FontWeight::Normal;
+    case 4:
+        return FontWeight::Medium;
+    case 5:
+        return FontWeight::SemiBold;
+    case 6:
+        return FontWeight::Bold;
+    case 7:
+        return FontWeight::UltraBold;
+    case 8:
+        return FontWeight::Heavy;
+    case 9:
+        return FontWeight::UltraHeavy;
+    default:
+        return FontWeight::Normal;
     }
 }
 
-FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
-    : QWidget(parent)
-    , m_doc(doc)
+FontProperties::FontProperties(SceneDocument* doc, QWidget* parent) : QWidget(parent), m_doc(doc)
 {
     auto* outerLayout = new QVBoxLayout(this);
 
@@ -127,8 +147,8 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
     familyForm->addRow("Font", m_fontFamily);
 
     m_fontWeight = new QComboBox();
-    for (const char* w : {"Thin", "Ultra Light", "Light", "Regular", "Medium",
-                          "Semi Bold", "Bold", "Ultra Bold", "Heavy", "Ultra Heavy"})
+    for (const char* w : {"Thin", "Ultra Light", "Light", "Regular", "Medium", "Semi Bold", "Bold",
+                          "Ultra Bold", "Heavy", "Ultra Heavy"})
         m_fontWeight->addItem(w);
     familyForm->addRow("Weight", m_fontWeight);
 
@@ -147,7 +167,7 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
     toolLayout->setSpacing(4);
     toolLayout->setAlignment(Qt::AlignLeft);
 
-    {   // H align
+    { // H align
         QButtonGroup* group = new QButtonGroup(layoutToolbar);
         group->setExclusive(true);
 
@@ -165,7 +185,7 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
 
         toolLayout->addWidget(createVDivider());
     }
-    {   // V align
+    { // V align
         QButtonGroup* group = new QButtonGroup(layoutToolbar);
         group->setExclusive(true);
 
@@ -187,7 +207,7 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
     toolAppearance->setSpacing(4);
     toolAppearance->setAlignment(Qt::AlignLeft);
 
-    {   // Options
+    { // Options
         m_italicOption = createToolButton(fa::fa_italic, "Italic");
         toolAppearance->addWidget(m_italicOption);
 
@@ -221,34 +241,34 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent)
     m_controls->setVisible(false);
 
     // Connections
-    connect(m_fontFamily, QOverload<int>::of(&QComboBox::activated),
-            this, &FontProperties::onFontFamilyChanged);
-    connect(m_fontSize,   QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, &FontProperties::onFontSizeChanged);
-    connect(m_fontWeight, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &FontProperties::onFontWeightChanged);
-    connect(m_textEdit,   &QPlainTextEdit::textChanged, this, &FontProperties::onTextChanged);
-    connect(m_autoScale,  &QCheckBox::toggled, this, &FontProperties::onAutoScaleToggled);
-    connect(m_ellipsize,  QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &FontProperties::onEllipsizeChanged);
-    connect(m_wrap,       QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &FontProperties::onWrapChanged);
+    connect(m_fontFamily, QOverload<int>::of(&QComboBox::activated), this,
+            &FontProperties::onFontFamilyChanged);
+    connect(m_fontSize, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            &FontProperties::onFontSizeChanged);
+    connect(m_fontWeight, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &FontProperties::onFontWeightChanged);
+    connect(m_textEdit, &QPlainTextEdit::textChanged, this, &FontProperties::onTextChanged);
+    connect(m_autoScale, &QCheckBox::toggled, this, &FontProperties::onAutoScaleToggled);
+    connect(m_ellipsize, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &FontProperties::onEllipsizeChanged);
+    connect(m_wrap, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &FontProperties::onWrapChanged);
 
-    connect(m_italicOption,        &QToolButton::toggled, this, &FontProperties::onFontItalicToggled);
-    connect(m_underlineOption,     &QToolButton::toggled, this, &FontProperties::onUnderlineToggled);
-    connect(m_strikethroughOption, &QToolButton::toggled, this, &FontProperties::onStrikethroughToggled);
+    connect(m_italicOption, &QToolButton::toggled, this, &FontProperties::onFontItalicToggled);
+    connect(m_underlineOption, &QToolButton::toggled, this, &FontProperties::onUnderlineToggled);
+    connect(m_strikethroughOption, &QToolButton::toggled, this,
+            &FontProperties::onStrikethroughToggled);
 
-    connect(m_alignLeft,    &QToolButton::clicked, this, [this]{ onAlignXChanged(0); });
-    connect(m_alignCenter,  &QToolButton::clicked, this, [this]{ onAlignXChanged(1); });
-    connect(m_alignJustify, &QToolButton::clicked, this, [this]{ onAlignXChanged(2); });
-    connect(m_alignRight,   &QToolButton::clicked, this, [this]{ onAlignXChanged(3); });
+    connect(m_alignLeft, &QToolButton::clicked, this, [this] { onAlignXChanged(0); });
+    connect(m_alignCenter, &QToolButton::clicked, this, [this] { onAlignXChanged(1); });
+    connect(m_alignJustify, &QToolButton::clicked, this, [this] { onAlignXChanged(2); });
+    connect(m_alignRight, &QToolButton::clicked, this, [this] { onAlignXChanged(3); });
 
-    connect(m_alignTop,    &QToolButton::clicked, this, [this]{ onAlignYChanged(0); });
-    connect(m_alignMiddle, &QToolButton::clicked, this, [this]{ onAlignYChanged(1); });
-    connect(m_alignBottom, &QToolButton::clicked, this, [this]{ onAlignYChanged(2); });
+    connect(m_alignTop, &QToolButton::clicked, this, [this] { onAlignYChanged(0); });
+    connect(m_alignMiddle, &QToolButton::clicked, this, [this] { onAlignYChanged(1); });
+    connect(m_alignBottom, &QToolButton::clicked, this, [this] { onAlignYChanged(2); });
 
-    connect(m_doc, &SceneDocument::documentChanged,
-            this, &FontProperties::onDocumentChanged);
+    connect(m_doc, &SceneDocument::documentChanged, this, &FontProperties::onDocumentChanged);
 }
 
 void FontProperties::loadFonts()
@@ -274,16 +294,19 @@ void FontProperties::loadFonts()
 
 void FontProperties::browseForFont()
 {
-    const QString path = QFileDialog::getOpenFileName(
-        this, "Open Font File", QString(),
-        "Font files (*.ttf *.otf *.woff *.woff2);;All files (*)");
-    if (path.isEmpty()) return;
+    const QString path =
+        QFileDialog::getOpenFileName(this, "Open Font File", QString(),
+                                     "Font files (*.ttf *.otf *.woff *.woff2);;All files (*)");
+    if (path.isEmpty())
+        return;
 
     int id = QFontDatabase::addApplicationFont(path);
-    if (id < 0) return;
+    if (id < 0)
+        return;
 
     const QStringList loaded = QFontDatabase::applicationFontFamilies(id);
-    if (loaded.isEmpty()) return;
+    if (loaded.isEmpty())
+        return;
 
     const QString family = loaded.first();
 
@@ -312,13 +335,12 @@ QToolButton* FontProperties::createToolButton(int icon, const QString& tooltip, 
     btn->setIcon(qta()->icon(fa::fa_solid, icon));
     btn->setIconSize(QSize(18, 18));
     btn->setToolTip(tooltip);
-    btn->setStyleSheet(
-        "QToolButton:checked { "
-        "    background-color: #222; "
-        "    font-weight: bold; "
-        "} "
-    );
-    if (group) group->addButton(btn);
+    btn->setStyleSheet("QToolButton:checked { "
+                       "    background-color: #222; "
+                       "    font-weight: bold; "
+                       "} ");
+    if (group)
+        group->addButton(btn);
     return btn;
 }
 
@@ -340,7 +362,8 @@ QFrame* FontProperties::createHDivider()
 
 void FontProperties::setFieldIcon(QFormLayout* form, QWidget* field, int icon)
 {
-    ((QLabel*)form->labelForField(field))->setPixmap(qta()->icon(fa::fa_solid, icon).pixmap(18,18));
+    ((QLabel*)form->labelForField(field))
+        ->setPixmap(qta()->icon(fa::fa_solid, icon).pixmap(18, 18));
 }
 
 void FontProperties::setSelection(const std::string& graphicId, const std::string& elementId)
@@ -352,7 +375,8 @@ void FontProperties::setSelection(const std::string& graphicId, const std::strin
 
 void FontProperties::onDocumentChanged()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
 
     if (m_graphicId.empty() || m_elementId.empty()) {
         m_placeholder->setVisible(true);
@@ -364,7 +388,8 @@ void FontProperties::onDocumentChanged()
     const Element* el = nullptr;
     try {
         el = &s.GetById(m_graphicId).GetById(m_elementId);
-    } catch (const std::runtime_error&) {}
+    } catch (const std::runtime_error&) {
+    }
 
     if (!el || el->type != ElementType::Text) {
         m_placeholder->setVisible(true);
@@ -413,16 +438,30 @@ void FontProperties::onDocumentChanged()
     m_alignBottom->setChecked(el->textAlignY == VerticalAlignment::Bottom);
 
     switch (el->ellipsize) {
-    case Ellipsize::Start:  m_ellipsize->setCurrentIndex(1); break;
-    case Ellipsize::Middle: m_ellipsize->setCurrentIndex(2); break;
-    case Ellipsize::End:    m_ellipsize->setCurrentIndex(3); break;
-    default:                m_ellipsize->setCurrentIndex(0); break;
+    case Ellipsize::Start:
+        m_ellipsize->setCurrentIndex(1);
+        break;
+    case Ellipsize::Middle:
+        m_ellipsize->setCurrentIndex(2);
+        break;
+    case Ellipsize::End:
+        m_ellipsize->setCurrentIndex(3);
+        break;
+    default:
+        m_ellipsize->setCurrentIndex(0);
+        break;
     }
 
     switch (el->wrapMode) {
-    case WrapMode::Char:     m_wrap->setCurrentIndex(1); break;
-    case WrapMode::WordChar: m_wrap->setCurrentIndex(2); break;
-    default:                 m_wrap->setCurrentIndex(0); break;
+    case WrapMode::Char:
+        m_wrap->setCurrentIndex(1);
+        break;
+    case WrapMode::WordChar:
+        m_wrap->setCurrentIndex(2);
+        break;
+    default:
+        m_wrap->setCurrentIndex(0);
+        break;
     }
 
     m_updating = false;
@@ -430,7 +469,8 @@ void FontProperties::onDocumentChanged()
 
 void FontProperties::onFontFamilyChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     if (index == 0) {
         // Browse for font file then re-evaluate
         browseForFont();
@@ -440,120 +480,116 @@ void FontProperties::onFontFamilyChanged(int index)
     const std::string family = model->item(index)->data(Qt::UserRole).toString().toStdString();
     m_doc->undoStack()->push(new SetElementFieldCmd<std::string>(
         m_doc, m_graphicId, m_elementId, family,
-        [](Element& e) -> std::string& { return e.font.family; }, "font_family"
-    ));
+        [](Element& e) -> std::string& { return e.font.family; }, "font_family"));
 }
 
 void FontProperties::onFontSizeChanged(double value)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<float>(
         m_doc, m_graphicId, m_elementId, static_cast<float>(value),
         [](Element& e) -> float& { return e.font.size; }, "font_size",
-        ElemMergeTag::StrokeW + 10  // reuse a unique merge tag
-    ));
+        ElemMergeTag::StrokeW + 10 // reuse a unique merge tag
+        ));
 }
 
 void FontProperties::onFontWeightChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     FontWeight w = indexToWeight(index);
     m_doc->undoStack()->push(new SetElementFieldCmd<FontWeight>(
-        m_doc, m_graphicId, m_elementId, w,
-        [](Element& e) -> FontWeight& { return e.font.weight; }, "font_weight"
-    ));
+        m_doc, m_graphicId, m_elementId, w, [](Element& e) -> FontWeight& { return e.font.weight; },
+        "font_weight"));
 }
 
 void FontProperties::onFontItalicToggled(bool checked)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<bool>(
         m_doc, m_graphicId, m_elementId, checked,
-        [](Element& e) -> bool& { return e.font.isItalic; }, "font_italic"
-    ));
+        [](Element& e) -> bool& { return e.font.isItalic; }, "font_italic"));
 }
 
 void FontProperties::onUnderlineToggled(bool checked)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<bool>(
         m_doc, m_graphicId, m_elementId, checked,
-        [](Element& e) -> bool& { return e.font.isUnderline; }, "font_underline"
-    ));
+        [](Element& e) -> bool& { return e.font.isUnderline; }, "font_underline"));
 }
 
 void FontProperties::onStrikethroughToggled(bool checked)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<bool>(
         m_doc, m_graphicId, m_elementId, checked,
-        [](Element& e) -> bool& { return e.font.isStrikethrough; }, "font_strikethrough"
-    ));
+        [](Element& e) -> bool& { return e.font.isStrikethrough; }, "font_strikethrough"));
 }
 
 void FontProperties::onTextChanged()
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     const std::string text = m_textEdit->toPlainText().toStdString();
     m_savedTextCursor = m_textEdit->textCursor().position();
     m_doc->undoStack()->push(new SetElementFieldCmd<std::string>(
-        m_doc, m_graphicId, m_elementId, text,
-        [](Element& e) -> std::string& { return e.text; }, "text"
-    ));
+        m_doc, m_graphicId, m_elementId, text, [](Element& e) -> std::string& { return e.text; },
+        "text"));
 }
 
 void FontProperties::onAutoScaleToggled(bool checked)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     m_doc->undoStack()->push(new SetElementFieldCmd<bool>(
-        m_doc, m_graphicId, m_elementId, checked,
-        [](Element& e) -> bool& { return e.autoScale; }, "auto_scale"
-    ));
+        m_doc, m_graphicId, m_elementId, checked, [](Element& e) -> bool& { return e.autoScale; },
+        "auto_scale"));
 }
 
 void FontProperties::onAlignXChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     const HorizontalAlignment a = static_cast<HorizontalAlignment>(index);
     m_doc->undoStack()->push(new SetElementFieldCmd<HorizontalAlignment>(
         m_doc, m_graphicId, m_elementId, a,
-        [](Element& e) -> HorizontalAlignment& { return e.textAlignX; }, "text_align_x"
-    ));
+        [](Element& e) -> HorizontalAlignment& { return e.textAlignX; }, "text_align_x"));
 }
 
 void FontProperties::onAlignYChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
     const VerticalAlignment a = static_cast<VerticalAlignment>(index);
     m_doc->undoStack()->push(new SetElementFieldCmd<VerticalAlignment>(
         m_doc, m_graphicId, m_elementId, a,
-        [](Element& e) -> VerticalAlignment& { return e.textAlignY; }, "text_align_y"
-    ));
+        [](Element& e) -> VerticalAlignment& { return e.textAlignY; }, "text_align_y"));
 }
 
 void FontProperties::onEllipsizeChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
-    static const Ellipsize kMap[] = {
-        Ellipsize::None, Ellipsize::Start, Ellipsize::Middle, Ellipsize::End
-    };
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    static const Ellipsize kMap[] = {Ellipsize::None, Ellipsize::Start, Ellipsize::Middle,
+                                     Ellipsize::End};
     const Ellipsize e = kMap[index];
     m_doc->undoStack()->push(new SetElementFieldCmd<Ellipsize>(
-        m_doc, m_graphicId, m_elementId, e,
-        [](Element& el) -> Ellipsize& { return el.ellipsize; }, "ellipsize"
-    ));
+        m_doc, m_graphicId, m_elementId, e, [](Element& el) -> Ellipsize& { return el.ellipsize; },
+        "ellipsize"));
 }
 
 void FontProperties::onWrapChanged(int index)
 {
-    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
-    static const WrapMode kMap[] = {
-        WrapMode::Word, WrapMode::Char, WrapMode::WordChar
-    };
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    static const WrapMode kMap[] = {WrapMode::Word, WrapMode::Char, WrapMode::WordChar};
     const WrapMode wm = kMap[index];
     m_doc->undoStack()->push(new SetElementFieldCmd<WrapMode>(
-        m_doc, m_graphicId, m_elementId, wm,
-        [](Element& e) -> WrapMode& { return e.wrapMode; }, "wrap"
-    ));
+        m_doc, m_graphicId, m_elementId, wm, [](Element& e) -> WrapMode& { return e.wrapMode; },
+        "wrap"));
 }
-

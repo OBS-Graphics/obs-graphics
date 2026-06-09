@@ -1,7 +1,7 @@
 #include "sceneproperties.h"
+#include "engine/scene.h"
 #include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
-#include "engine/scene.h"
 
 #include <QComboBox>
 #include <QFormLayout>
@@ -11,17 +11,12 @@
 #include <QVBoxLayout>
 
 const SceneProperties::Preset SceneProperties::kPresets[] = {
-    { "1920 × 1080  (16:9 FHD)",  1920, 1080 },
-    { "1280 × 720   (16:9 HD)",   1280,  720 },
-    { "3840 × 2160  (4K UHD)",    3840, 2160 },
-    { "1080 × 1920  (9:16 Vert)", 1080, 1920 },
-    { "2560 × 1440  (16:9 QHD)",  2560, 1440 },
-    { "Custom",                       0,    0 },
+    {"1920 × 1080  (16:9 FHD)", 1920, 1080}, {"1280 × 720   (16:9 HD)", 1280, 720},
+    {"3840 × 2160  (4K UHD)", 3840, 2160},   {"1080 × 1920  (9:16 Vert)", 1080, 1920},
+    {"2560 × 1440  (16:9 QHD)", 2560, 1440}, {"Custom", 0, 0},
 };
 
-SceneProperties::SceneProperties(SceneDocument* doc, QWidget* parent)
-    : QWidget(parent)
-    , m_doc(doc)
+SceneProperties::SceneProperties(SceneDocument* doc, QWidget* parent) : QWidget(parent), m_doc(doc)
 {
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(8, 8, 8, 8);
@@ -50,16 +45,12 @@ SceneProperties::SceneProperties(SceneDocument* doc, QWidget* parent)
     layout->addLayout(form);
     layout->addStretch();
 
-    connect(m_nameEdit, &QLineEdit::editingFinished,
-            this, &SceneProperties::onNameEditingFinished);
-    connect(m_presetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &SceneProperties::onPresetChanged);
-    connect(m_widthSpin,  &QSpinBox::editingFinished,
-            this, &SceneProperties::onWidthFinished);
-    connect(m_heightSpin, &QSpinBox::editingFinished,
-            this, &SceneProperties::onHeightFinished);
-    connect(m_doc, &SceneDocument::documentChanged,
-            this, &SceneProperties::onDocumentChanged);
+    connect(m_nameEdit, &QLineEdit::editingFinished, this, &SceneProperties::onNameEditingFinished);
+    connect(m_presetCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &SceneProperties::onPresetChanged);
+    connect(m_widthSpin, &QSpinBox::editingFinished, this, &SceneProperties::onWidthFinished);
+    connect(m_heightSpin, &QSpinBox::editingFinished, this, &SceneProperties::onHeightFinished);
+    connect(m_doc, &SceneDocument::documentChanged, this, &SceneProperties::onDocumentChanged);
 
     onDocumentChanged();
 }
@@ -75,7 +66,8 @@ int SceneProperties::findPresetIndex(int w, int h) const
 
 void SceneProperties::onDocumentChanged()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     m_updating = true;
 
     const Scene& s = m_doc->scene();
@@ -89,18 +81,22 @@ void SceneProperties::onDocumentChanged()
 
 void SceneProperties::onNameEditingFinished()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     QString newName = m_nameEdit->text().trimmed();
-    if (newName == m_doc->sceneName()) return;
+    if (newName == m_doc->sceneName())
+        return;
     m_doc->undoStack()->push(new SetSceneNameCmd(m_doc, newName));
 }
 
 void SceneProperties::onPresetChanged(int index)
 {
-    if (m_updating || index < 0 || index >= kCustomIndex) return;
+    if (m_updating || index < 0 || index >= kCustomIndex)
+        return;
     int w = kPresets[index].w;
     int h = kPresets[index].h;
-    if (w == m_doc->scene().width && h == m_doc->scene().height) return;
+    if (w == m_doc->scene().width && h == m_doc->scene().height)
+        return;
 
     m_updating = true;
     m_widthSpin->setValue(w);
@@ -112,18 +108,22 @@ void SceneProperties::onPresetChanged(int index)
 
 void SceneProperties::onWidthFinished()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     int w = m_widthSpin->value();
     int h = m_heightSpin->value();
-    if (w == m_doc->scene().width) return;
+    if (w == m_doc->scene().width)
+        return;
     m_doc->undoStack()->push(new SetSceneDimensionsCmd(m_doc, w, h));
 }
 
 void SceneProperties::onHeightFinished()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     int w = m_widthSpin->value();
     int h = m_heightSpin->value();
-    if (h == m_doc->scene().height) return;
+    if (h == m_doc->scene().height)
+        return;
     m_doc->undoStack()->push(new SetSceneDimensionsCmd(m_doc, w, h));
 }

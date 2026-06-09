@@ -1,9 +1,9 @@
 #include "GradientEditor.h"
-#include <QPainter>
-#include <QMouseEvent>
-#include <QContextMenuEvent>
 #include <QColorDialog>
+#include <QContextMenuEvent>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QPainter>
 #include <algorithm>
 
 static QGradientStops toQGradientStops(const QVector<GradientStop>& stops)
@@ -15,14 +15,16 @@ static QGradientStops toQGradientStops(const QVector<GradientStop>& stops)
     return result;
 }
 
-GradientEditor::GradientEditor(QWidget* parent)
-    : QWidget(parent)
+GradientEditor::GradientEditor(QWidget* parent) : QWidget(parent)
 {
     m_stops = {{0.0, Qt::black}, {1.0, Qt::white}};
     setMinimumHeight(kBarH);
 }
 
-QVector<GradientStop> GradientEditor::stops() const { return m_stops; }
+QVector<GradientStop> GradientEditor::stops() const
+{
+    return m_stops;
+}
 
 void GradientEditor::setStops(const QVector<GradientStop>& stops)
 {
@@ -32,7 +34,10 @@ void GradientEditor::setStops(const QVector<GradientStop>& stops)
     update();
 }
 
-QSize GradientEditor::sizeHint() const { return {200, kBarH}; }
+QSize GradientEditor::sizeHint() const
+{
+    return {200, kBarH};
+}
 
 QRect GradientEditor::barRect() const
 {
@@ -41,7 +46,8 @@ QRect GradientEditor::barRect() const
 
 QRect GradientEditor::handleRect(int idx) const
 {
-    if (idx < 0 || idx >= m_stops.size()) return {};
+    if (idx < 0 || idx >= m_stops.size())
+        return {};
     QRect bar = barRect();
     int cx = bar.left() + qRound(m_stops[idx].position * bar.width());
     int cy = bar.center().y();
@@ -60,21 +66,22 @@ int GradientEditor::hitTestHandle(QPoint p) const
 qreal GradientEditor::positionFromX(int x) const
 {
     QRect bar = barRect();
-    if (bar.width() <= 0) return 0.0;
+    if (bar.width() <= 0)
+        return 0.0;
     return qBound(0.0, (qreal)(x - bar.left()) / bar.width(), 1.0);
 }
 
-
 void GradientEditor::sortStops()
 {
-    std::stable_sort(m_stops.begin(), m_stops.end(),
-        [](const GradientStop& a, const GradientStop& b){ return a.position < b.position; });
+    std::stable_sort(
+        m_stops.begin(), m_stops.end(),
+        [](const GradientStop& a, const GradientStop& b) { return a.position < b.position; });
 }
 
 void GradientEditor::editStopColor(int idx)
 {
-    QColor chosen = QColorDialog::getColor(
-        m_stops[idx].color, this, "Stop Color", QColorDialog::ShowAlphaChannel);
+    QColor chosen = QColorDialog::getColor(m_stops[idx].color, this, "Stop Color",
+                                           QColorDialog::ShowAlphaChannel);
     if (chosen.isValid()) {
         m_stops[idx].color = chosen;
         emit stopsChanged(m_stops);
@@ -101,8 +108,9 @@ void GradientEditor::paintEvent(QPaintEvent*)
     if (m_stops.size() >= 2) {
         QLinearGradient grad(bar.left(), 0, bar.right(), 0);
         QVector<GradientStop> sorted = m_stops;
-        std::sort(sorted.begin(), sorted.end(),
-            [](const GradientStop& a, const GradientStop& b){ return a.position < b.position; });
+        std::sort(sorted.begin(), sorted.end(), [](const GradientStop& a, const GradientStop& b) {
+            return a.position < b.position;
+        });
         for (const auto& s : sorted)
             grad.setColorAt(s.position, s.color);
         p.fillRect(bar, grad);
@@ -117,8 +125,10 @@ void GradientEditor::paintEvent(QPaintEvent*)
     for (int pass = 0; pass < 2; ++pass) {
         for (int i = 0; i < m_stops.size(); ++i) {
             bool isSelected = (i == m_selected);
-            if (pass == 0 && isSelected)  continue;
-            if (pass == 1 && !isSelected) continue;
+            if (pass == 0 && isSelected)
+                continue;
+            if (pass == 1 && !isSelected)
+                continue;
 
             QPoint center = handleRect(i).center();
 
@@ -142,7 +152,8 @@ void GradientEditor::paintEvent(QPaintEvent*)
 
 void GradientEditor::mousePressEvent(QMouseEvent* e)
 {
-    if (e->button() != Qt::LeftButton) return;
+    if (e->button() != Qt::LeftButton)
+        return;
 
     int h = hitTestHandle(e->pos());
     if (h >= 0) {
@@ -164,7 +175,8 @@ void GradientEditor::mousePressEvent(QMouseEvent* e)
 
 void GradientEditor::mouseMoveEvent(QMouseEvent* e)
 {
-    if (m_dragging < 0 || !(e->buttons() & Qt::LeftButton)) return;
+    if (m_dragging < 0 || !(e->buttons() & Qt::LeftButton))
+        return;
     m_stops[m_dragging].position = positionFromX(e->pos().x());
     emit stopsChanged(m_stops);
     update();
@@ -172,13 +184,14 @@ void GradientEditor::mouseMoveEvent(QMouseEvent* e)
 
 void GradientEditor::mouseReleaseEvent(QMouseEvent* e)
 {
-    if (e->button() != Qt::LeftButton || m_dragging < 0) return;
+    if (e->button() != Qt::LeftButton || m_dragging < 0)
+        return;
 
     GradientStop dragged = m_stops[m_dragging];
     sortStops();
     for (int i = 0; i < m_stops.size(); ++i) {
-        if (qAbs(m_stops[i].position - dragged.position) < 1e-9
-            && m_stops[i].color == dragged.color) {
+        if (qAbs(m_stops[i].position - dragged.position) < 1e-9 &&
+            m_stops[i].color == dragged.color) {
             m_selected = i;
             break;
         }
@@ -200,7 +213,7 @@ void GradientEditor::contextMenuEvent(QContextMenuEvent* e)
     QMenu menu(this);
 
     if (h >= 0) {
-        QAction* editAct   = menu.addAction("Edit Color...");
+        QAction* editAct = menu.addAction("Edit Color...");
         QAction* deleteAct = menu.addAction("Delete Stop");
         deleteAct->setEnabled(m_stops.size() > 2);
 

@@ -1,7 +1,7 @@
 #pragma once
-#include <QWidget>
 #include <QColor>
 #include <QImage>
+#include <QWidget>
 #include <array>
 
 class ColorWheel : public QWidget {
@@ -13,31 +13,33 @@ public:
     void setColor(const QColor& c);
     QSize sizeHint() const override;
     bool hasHeightForWidth() const override;
-    int  heightForWidth(int w) const override;
+    int heightForWidth(int w) const override;
 signals:
     void colorChanged(const QColor&);
+
 protected:
     void paintEvent(QPaintEvent*) override;
     void resizeEvent(QResizeEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
+
 private:
     enum class DragZone { None, Ring, Triangle };
 
-    QColor   m_color{Qt::red};
+    QColor m_color{Qt::red};
     DragZone m_drag{DragZone::None};
-    QImage   m_ringImage;
-    QImage   m_triangleImage;
-    bool     m_ringDirty{true};
-    bool     m_triangleDirty{true};
+    QImage m_ringImage;
+    QImage m_triangleImage;
+    bool m_ringDirty{true};
+    bool m_triangleDirty{true};
 
     void rebuildRing();
     void rebuildTriangle();
 
     QPointF center() const;
-    qreal   outerRadius() const;
-    qreal   innerRadius() const;
+    qreal outerRadius() const;
+    qreal innerRadius() const;
 
     bool pointInRing(QPointF p) const;
     bool pointInTriangle(QPointF p) const;

@@ -9,8 +9,8 @@
 #include <QString>
 #include <QUndoStack>
 
-#include "engine/scene.h"
 #include "engine/json.hpp"
+#include "engine/scene.h"
 
 struct ElementRef {
     QString graphicsId, elementId;
@@ -27,23 +27,33 @@ public:
     bool saveAs(const QString& path);
 
     // Accessors
-    Scene& scene() { return m_scene; }
+    Scene& scene()
+    {
+        return m_scene;
+    }
     Element& getElement(ElementRef ref);
-    QString filePath() const { return m_filePath; }
-    bool isModified() const { return m_modified; }
+    QString filePath() const
+    {
+        return m_filePath;
+    }
+    bool isModified() const
+    {
+        return m_modified;
+    }
     QString sceneName() const;
 
-    QUndoStack* undoStack() { return &m_undoStack; }
+    QUndoStack* undoStack()
+    {
+        return &m_undoStack;
+    }
 
     // Reset to an empty scene, clearing file path and undo stack
     void reset();
 
     // Update the mask/parent ID refs for one element and re-resolve pointers.
     // Both IDs are element IDs within the same graphic; pass "" for no reference.
-    void setElementRef(const std::string& graphicId,
-                       const std::string& elementId,
-                       const std::string& maskId,
-                       const std::string& parentId);
+    void setElementRef(const std::string& graphicId, const std::string& elementId,
+                       const std::string& maskId, const std::string& parentId);
 
     // Move all element refs from one graphic ID key to another (for rename).
     void renameGraphicRef(const std::string& oldId, const std::string& newId);
@@ -55,8 +65,7 @@ public:
     void setSceneName(const QString& name);
 
     // Serialization
-    static nlohmann::json sceneToJson(const Scene& scene,
-                                      const std::string& name = "");
+    static nlohmann::json sceneToJson(const Scene& scene, const std::string& name = "");
 
 signals:
     void documentChanged();
@@ -64,10 +73,10 @@ signals:
     void modifiedChanged(bool modified);
 
 private:
-    Scene      m_scene;
+    Scene m_scene;
     QUndoStack m_undoStack;
-    QString    m_filePath;
-    bool       m_modified{false};
+    QString m_filePath;
+    bool m_modified{false};
     std::string m_sceneName;
 
     // Rebuild Element::mask / Element::parent raw pointers after any
@@ -77,8 +86,7 @@ private:
     // Key:   element id string
     // Value: (maskId, parentId) strings – empty = no reference
     using RefMap = std::map<std::string /*elementId*/,
-                            std::pair<std::string /*maskId*/,
-                                      std::string /*parentId*/>>;
+                            std::pair<std::string /*maskId*/, std::string /*parentId*/>>;
     std::map<std::string /*graphicId*/, RefMap> m_elementRefs;
 
     void resolveElementPointers();

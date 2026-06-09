@@ -1,20 +1,19 @@
 #include "SceneTreeModel.h"
 
+#include "engine/element.h"
+#include "engine/graphic.h"
+#include "engine/scene.h"
+#include "icons.h"
 #include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
-#include "engine/scene.h"
-#include "engine/graphic.h"
-#include "engine/element.h"
-#include "icons.h"
 
 #include <QDataStream>
 #include <QIODevice>
-#include <numeric>
 #include <algorithm>
+#include <numeric>
 
 SceneTreeModel::SceneTreeModel(SceneDocument* doc, QObject* parent)
-    : QAbstractItemModel(parent)
-    , m_doc(doc)
+    : QAbstractItemModel(parent), m_doc(doc)
 {
     connect(m_doc, &SceneDocument::documentChanged, this, [this]() {
         beginResetModel();
@@ -39,7 +38,8 @@ QVector<int> SceneTreeModel::sortedGraphicIndices() const
 QVector<int> SceneTreeModel::sortedElementIndices(int gi) const
 {
     const Scene& s = m_doc->scene();
-    if (gi < 0 || gi >= static_cast<int>(s.graphics.size())) return {};
+    if (gi < 0 || gi >= static_cast<int>(s.graphics.size()))
+        return {};
     int n = static_cast<int>(s.graphics[gi].elements.size());
     QVector<int> idx(n);
     std::iota(idx.begin(), idx.end(), 0);
@@ -53,7 +53,8 @@ int SceneTreeModel::sortedGraphicRow(int gi) const
 {
     auto sorted = sortedGraphicIndices();
     for (int r = 0; r < sorted.size(); ++r)
-        if (sorted[r] == gi) return r;
+        if (sorted[r] == gi)
+            return r;
     return gi;
 }
 
@@ -61,14 +62,14 @@ int SceneTreeModel::sortedElementRow(int gi, int ei) const
 {
     auto sorted = sortedElementIndices(gi);
     for (int r = 0; r < sorted.size(); ++r)
-        if (sorted[r] == ei) return r;
+        if (sorted[r] == ei)
+            return r;
     return ei;
 }
 
 // ── QAbstractItemModel overrides ──────────────────────────────────────────────
 
-QModelIndex SceneTreeModel::index(int row, int column,
-                                  const QModelIndex& parent) const
+QModelIndex SceneTreeModel::index(int row, int column, const QModelIndex& parent) const
 {
     if (!hasIndex(row, column, parent))
         return {};
@@ -79,19 +80,21 @@ QModelIndex SceneTreeModel::index(int row, int column,
         return {};
     }
 
-    quintptr pid    = parent.internalId();
+    quintptr pid = parent.internalId();
     quintptr plevel = levelOf(pid);
 
     if (plevel == LEVEL_SCENE) {
         auto sorted = sortedGraphicIndices();
-        if (row >= sorted.size()) return {};
+        if (row >= sorted.size())
+            return {};
         return createIndex(row, column, makeId(LEVEL_GRAPHIC, sorted[row], -1));
     }
 
     if (plevel == LEVEL_GRAPHIC) {
         int gi = giOf(pid);
         auto sorted = sortedElementIndices(gi);
-        if (row >= sorted.size()) return {};
+        if (row >= sorted.size())
+            return {};
         return createIndex(row, column, makeId(LEVEL_ELEMENT, gi, sorted[row]));
     }
 
@@ -103,7 +106,7 @@ QModelIndex SceneTreeModel::parent(const QModelIndex& child) const
     if (!child.isValid())
         return {};
 
-    quintptr id    = child.internalId();
+    quintptr id = child.internalId();
     quintptr level = levelOf(id);
 
     if (level == LEVEL_SCENE)
@@ -113,7 +116,7 @@ QModelIndex SceneTreeModel::parent(const QModelIndex& child) const
         return createIndex(0, 0, makeId(LEVEL_SCENE, -1, -1));
 
     if (level == LEVEL_ELEMENT) {
-        int gi  = giOf(id);
+        int gi = giOf(id);
         int row = sortedGraphicRow(gi);
         return createIndex(row, 0, makeId(LEVEL_GRAPHIC, gi, -1));
     }
@@ -126,7 +129,7 @@ int SceneTreeModel::rowCount(const QModelIndex& parent) const
     if (!parent.isValid())
         return 1;
 
-    quintptr id    = parent.internalId();
+    quintptr id = parent.internalId();
     quintptr level = levelOf(id);
 
     if (level == LEVEL_SCENE)
@@ -153,7 +156,7 @@ QVariant SceneTreeModel::data(const QModelIndex& index, int role) const
     if (!index.isValid())
         return {};
 
-    quintptr id    = index.internalId();
+    quintptr id = index.internalId();
     quintptr level = levelOf(id);
 
     if (role == Qt::DisplayRole) {
@@ -211,7 +214,7 @@ Qt::ItemFlags SceneTreeModel::flags(const QModelIndex& index) const
     if (!index.isValid())
         return Qt::ItemIsDropEnabled;
 
-    quintptr id    = index.internalId();
+    quintptr id = index.internalId();
     quintptr level = levelOf(id);
 
     Qt::ItemFlags f = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
@@ -251,9 +254,8 @@ QMimeData* SceneTreeModel::mimeData(const QModelIndexList& indexes) const
     return mime;
 }
 
-bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
-                                  int row, int /*column*/,
-                                  const QModelIndex& parent)
+bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row,
+                                  int /*column*/, const QModelIndex& parent)
 {
     if (action != Qt::MoveAction)
         return false;
@@ -278,7 +280,8 @@ bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
         // Reorder by updating Z-Order values
         auto sorted = sortedGraphicIndices(); // current sorted order (desc by zOrder)
         int n = sorted.size();
-        if (n < 2) return false;
+        if (n < 2)
+            return false;
 
         int srcRow = sortedGraphicRow(srcGi);
 
@@ -293,7 +296,8 @@ bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
         }
         destRow = std::clamp(destRow, 0, n - 1);
 
-        if (destRow == srcRow) return false;
+        if (destRow == srcRow)
+            return false;
 
         // Build new order: remove src, insert at dest
         QVector<int> newOrder = sorted;
@@ -305,12 +309,11 @@ bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
         // Assign Z-Orders: position 0 (top) → zOrder N-1, position N-1 → zOrder 0
         auto* macro = new QUndoCommand("reorder graphic");
         for (int r = 0; r < n; ++r) {
-            int gi    = newOrder[r];
-            int newZ  = n - 1 - r;
+            int gi = newOrder[r];
+            int newZ = n - 1 - r;
             if (s.graphics[gi].zOrder != newZ) {
                 new SetGraphicFieldCmd<int>(
-                    m_doc, s.graphics[gi].id, newZ,
-                    [](Graphic& g) -> int& { return g.zOrder; },
+                    m_doc, s.graphics[gi].id, newZ, [](Graphic& g) -> int& { return g.zOrder; },
                     "zOrder", macro);
             }
         }
@@ -319,36 +322,42 @@ bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
     }
 
     if (srcLevel == LEVEL_ELEMENT) {
-        if (!parent.isValid()) return false;
+        if (!parent.isValid())
+            return false;
 
-        quintptr pid    = parent.internalId();
+        quintptr pid = parent.internalId();
         quintptr plevel = levelOf(pid);
 
-        int destGi  = -1;
+        int destGi = -1;
         int destRow = row;
 
         if (plevel == LEVEL_GRAPHIC) {
             destGi = giOf(pid);
         } else if (plevel == LEVEL_ELEMENT) {
-            destGi  = giOf(pid);
+            destGi = giOf(pid);
             destRow = sortedElementRow(destGi, eiOf(pid));
         } else {
             return false;
         }
 
-        if (destGi != srcGi) return false;
-        if (destGi < 0 || destGi >= static_cast<int>(s.graphics.size())) return false;
+        if (destGi != srcGi)
+            return false;
+        if (destGi < 0 || destGi >= static_cast<int>(s.graphics.size()))
+            return false;
 
         const Graphic& g = s.graphics[destGi];
         int n = static_cast<int>(g.elements.size());
-        if (n < 2) return false;
+        if (n < 2)
+            return false;
 
         auto sorted = sortedElementIndices(destGi);
-        int srcRow  = sortedElementRow(destGi, srcEi);
+        int srcRow = sortedElementRow(destGi, srcEi);
 
-        if (destRow < 0) destRow = n - 1;
+        if (destRow < 0)
+            destRow = n - 1;
         destRow = std::clamp(destRow, 0, n - 1);
-        if (destRow == srcRow) return false;
+        if (destRow == srcRow)
+            return false;
 
         QVector<int> newOrder = sorted;
         newOrder.remove(srcRow);
@@ -359,13 +368,12 @@ bool SceneTreeModel::dropMimeData(const QMimeData* data, Qt::DropAction action,
         const std::string gid = g.id;
         auto* macro = new QUndoCommand("reorder element");
         for (int r = 0; r < n; ++r) {
-            int ei   = newOrder[r];
+            int ei = newOrder[r];
             int newZ = n - 1 - r;
             if (g.elements[ei].zOrder != newZ) {
                 new SetElementFieldCmd<int>(
                     m_doc, gid, g.elements[ei].id, newZ,
-                    [](Element& e) -> int& { return e.zOrder; },
-                    "zOrder", -1, macro);
+                    [](Element& e) -> int& { return e.zOrder; }, "zOrder", -1, macro);
             }
         }
         m_doc->undoStack()->push(macro);
@@ -380,7 +388,7 @@ SelectionId SceneTreeModel::selectionIdFor(const QModelIndex& index) const
     if (!index.isValid())
         return SelectionId{};
 
-    quintptr id    = index.internalId();
+    quintptr id = index.internalId();
     quintptr level = levelOf(id);
 
     if (level == LEVEL_SCENE)
@@ -408,8 +416,7 @@ QModelIndex SceneTreeModel::indexForSelection(const SelectionId& sel) const
 
     case SelectionId::Level::Element: {
         int row = sortedElementRow(sel.graphicIndex, sel.elementIndex);
-        return createIndex(row, 0,
-                           makeId(LEVEL_ELEMENT, sel.graphicIndex, sel.elementIndex));
+        return createIndex(row, 0, makeId(LEVEL_ELEMENT, sel.graphicIndex, sel.elementIndex));
     }
 
     default:

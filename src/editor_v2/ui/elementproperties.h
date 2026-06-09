@@ -1,7 +1,6 @@
 #ifndef ELEMENTPROPERTIES_H
 #define ELEMENTPROPERTIES_H
 
-#include <string>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -9,18 +8,18 @@
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QWidget>
+#include <string>
 
 class AnimationEditor;
 class PaddingEditor;
 class TransformEditor;
 class SceneDocument;
 
-class ElementProperties : public QWidget
-{
+class ElementProperties : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ElementProperties(SceneDocument* doc, QWidget *parent = nullptr);
+    explicit ElementProperties(SceneDocument* doc, QWidget* parent = nullptr);
 
     void setSelection(const std::string& graphicId, const std::string& elementId);
 
@@ -52,15 +51,15 @@ private:
     std::string m_elementId;
     bool m_updating{false};
 
-    QLineEdit *idLineEdit;
-    QSpinBox *zOrderSpinBox;
-    QDoubleSpinBox *opacitySpinBox;
+    QLineEdit* idLineEdit;
+    QSpinBox* zOrderSpinBox;
+    QDoubleSpinBox* opacitySpinBox;
     QComboBox *maskComboBox, *parentComboBox;
-    TransformEditor *transformEditor;
+    TransformEditor* transformEditor;
     AnimationEditor *animateIn, *animateOut;
 
-    QGroupBox*    m_fitChildrenBox;
-    QCheckBox*    m_fitChildrenCheck;
+    QGroupBox* m_fitChildrenBox;
+    QCheckBox* m_fitChildrenCheck;
     PaddingEditor* m_paddingEditor;
 };
 

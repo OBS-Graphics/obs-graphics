@@ -7,12 +7,11 @@
 
 struct AnimationDef;
 
-class AnimationEditor : public QWidget
-{
+class AnimationEditor : public QWidget {
     Q_OBJECT
 
 public:
-    explicit AnimationEditor(QWidget *parent = nullptr);
+    explicit AnimationEditor(QWidget* parent = nullptr);
 
     void load(const AnimationDef& anim);
     AnimationDef getAnimationDef() const;

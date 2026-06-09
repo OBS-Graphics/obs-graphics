@@ -1,20 +1,19 @@
 #include "painteditor.h"
 #include <QFrame>
 #include <QGridLayout>
+#include <QGroupBox>
 #include <QLabel>
 #include <QVBoxLayout>
-#include <QGroupBox>
 #include <qcoreevent.h>
 
-PaintEditor::PaintEditor(QWidget *parent)
-    : QWidget(parent)
+PaintEditor::PaintEditor(QWidget* parent) : QWidget(parent)
 {
-    auto *layout = new QGridLayout(this);
+    auto* layout = new QGridLayout(this);
     layout->setColumnStretch(0, 0);
     layout->setColumnStretch(1, 1);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    auto *typeLabel = new QLabel("Type");
+    auto* typeLabel = new QLabel("Type");
     typeComboBox = new QComboBox;
     typeComboBox->addItems({"None", "Solid", "Linear Gradient", "Radial Gradient"});
     typeComboBox->installEventFilter(this);
@@ -64,9 +63,12 @@ PaintEditor::PaintEditor(QWidget *parent)
         mainSelector->addWidget(page);
 
         connect(m_cpLinear, &ColorPicker::colorChanged, this, &PaintEditor::onColorChanged);
-        connect(m_lnStopPosition, &QDoubleSpinBox::valueChanged, this, &PaintEditor::onStopPosChanged);
-        connect(m_linearEditor, &LinearGradientEditor::stopsChanged, this, &PaintEditor::onStopsChanged);
-        connect(m_linearEditor, &LinearGradientEditor::stopSelected, this, &PaintEditor::onStopSelected);
+        connect(m_lnStopPosition, &QDoubleSpinBox::valueChanged, this,
+                &PaintEditor::onStopPosChanged);
+        connect(m_linearEditor, &LinearGradientEditor::stopsChanged, this,
+                &PaintEditor::onStopsChanged);
+        connect(m_linearEditor, &LinearGradientEditor::stopSelected, this,
+                &PaintEditor::onStopSelected);
 
         m_linearEditor->setStops({{0.0, Qt::black}, {1.0, Qt::white}});
     }
@@ -102,9 +104,12 @@ PaintEditor::PaintEditor(QWidget *parent)
         mainSelector->addWidget(page);
 
         connect(m_cpRadial, &ColorPicker::colorChanged, this, &PaintEditor::onColorChanged);
-        connect(m_radStopPosition, &QDoubleSpinBox::valueChanged, this, &PaintEditor::onStopPosChanged);
-        connect(m_radialEditor, &RadialGradientEditor::stopsChanged, this, &PaintEditor::onStopsChanged);
-        connect(m_radialEditor, &RadialGradientEditor::stopSelected, this, &PaintEditor::onStopSelected);
+        connect(m_radStopPosition, &QDoubleSpinBox::valueChanged, this,
+                &PaintEditor::onStopPosChanged);
+        connect(m_radialEditor, &RadialGradientEditor::stopsChanged, this,
+                &PaintEditor::onStopsChanged);
+        connect(m_radialEditor, &RadialGradientEditor::stopSelected, this,
+                &PaintEditor::onStopSelected);
 
         m_radialEditor->setStops({{0.0, Qt::black}, {1.0, Qt::white}});
     }
@@ -123,56 +128,64 @@ Paint PaintEditor::getPaint() const
     case 0: // None
         break;
     case 1: // Solid
-        {
-            auto col = m_cpSolid->color();
-            paint = Paint::Solid(col.redF(), col.greenF(), col.blueF(), col.alphaF());
-            break;
-        }
+    {
+        auto col = m_cpSolid->color();
+        paint = Paint::Solid(col.redF(), col.greenF(), col.blueF(), col.alphaF());
+        break;
+    }
     case 2: // Linear
-        {
-            auto p1 = m_linearEditor->p1();
-            auto p2 = m_linearEditor->p2();
-            paint = Paint::Linear(p1.x(), p1.y(), p2.x(), p2.y());
-            for (auto st : m_linearEditor->stops()) {
-                Paint::Stop est{};
-                est.offset = st.position;
-                est.r = st.color.redF();
-                est.g = st.color.greenF();
-                est.b = st.color.blueF();
-                est.a = st.color.alphaF();
-                paint.stops.push_back(est);
-            }
-        } break;
+    {
+        auto p1 = m_linearEditor->p1();
+        auto p2 = m_linearEditor->p2();
+        paint = Paint::Linear(p1.x(), p1.y(), p2.x(), p2.y());
+        for (auto st : m_linearEditor->stops()) {
+            Paint::Stop est{};
+            est.offset = st.position;
+            est.r = st.color.redF();
+            est.g = st.color.greenF();
+            est.b = st.color.blueF();
+            est.a = st.color.alphaF();
+            paint.stops.push_back(est);
+        }
+    } break;
     case 3: // Radial
-        {
-            auto p = m_radialEditor->center();
-            paint = Paint::Radial(p.x(), p.y(), 0.0, p.x(), p.y(), m_radialEditor->radius());
-            for (auto st : m_radialEditor->stops()) {
-                Paint::Stop est{};
-                est.offset = st.position;
-                est.r = st.color.redF();
-                est.g = st.color.greenF();
-                est.b = st.color.blueF();
-                est.a = st.color.alphaF();
-                paint.stops.push_back(est);
-            }
-        } break;
+    {
+        auto p = m_radialEditor->center();
+        paint = Paint::Radial(p.x(), p.y(), 0.0, p.x(), p.y(), m_radialEditor->radius());
+        for (auto st : m_radialEditor->stops()) {
+            Paint::Stop est{};
+            est.offset = st.position;
+            est.r = st.color.redF();
+            est.g = st.color.greenF();
+            est.b = st.color.blueF();
+            est.a = st.color.alphaF();
+            paint.stops.push_back(est);
+        }
+    } break;
     }
 
     return paint;
 }
 
-void PaintEditor::setPaint(const Paint &paint)
+void PaintEditor::setPaint(const Paint& paint)
 {
     m_updating = true;
 
     // Set combo to matching type
     int idx = 0;
     switch (paint.type) {
-    case Paint::Type::None:   idx = 0; break;
-    case Paint::Type::Solid:  idx = 1; break;
-    case Paint::Type::Linear: idx = 2; break;
-    case Paint::Type::Radial: idx = 3; break;
+    case Paint::Type::None:
+        idx = 0;
+        break;
+    case Paint::Type::Solid:
+        idx = 1;
+        break;
+    case Paint::Type::Linear:
+        idx = 2;
+        break;
+    case Paint::Type::Radial:
+        idx = 3;
+        break;
     }
     typeComboBox->setCurrentIndex(idx);
 
@@ -187,10 +200,10 @@ void PaintEditor::setPaint(const Paint &paint)
     case Paint::Type::None:
         break;
     case Paint::Type::Solid:
-        m_cpSolid->setColor(QColor::fromRgbF(paint.params[0], paint.params[1], paint.params[2], paint.params[3]));
+        m_cpSolid->setColor(
+            QColor::fromRgbF(paint.params[0], paint.params[1], paint.params[2], paint.params[3]));
         break;
-    case Paint::Type::Linear:
-    {
+    case Paint::Type::Linear: {
         m_linearEditor->setP1(QPointF(paint.params[0], paint.params[1]));
         m_linearEditor->setP2(QPointF(paint.params[2], paint.params[3]));
         QVector<GradientStop> stops;
@@ -202,8 +215,7 @@ void PaintEditor::setPaint(const Paint &paint)
         }
         m_linearEditor->setStops(stops);
     } break;
-    case Paint::Type::Radial:
-    {
+    case Paint::Type::Radial: {
         m_radialEditor->setCenter(QPointF(paint.params[0], paint.params[1]));
         m_radialEditor->setRadius(paint.params[2]);
         QVector<GradientStop> stops;
@@ -232,10 +244,11 @@ void PaintEditor::onTypeChanged(int index)
     emitPaint();
 }
 
-void PaintEditor::onColorChanged(const QColor &color)
+void PaintEditor::onColorChanged(const QColor& color)
 {
     auto* cp = qobject_cast<ColorPicker*>(sender());
-    if (!cp) return;
+    if (!cp)
+        return;
 
     if (cp == m_cpLinear) {
         int stop = m_linearEditor->selectedStop();
@@ -253,7 +266,8 @@ void PaintEditor::onColorChanged(const QColor &color)
 void PaintEditor::onStopPosChanged(double value)
 {
     auto* pos = qobject_cast<QDoubleSpinBox*>(sender());
-    if (!pos) return;
+    if (!pos)
+        return;
 
     if (pos == m_lnStopPosition) {
         int stop = m_linearEditor->selectedStop();
@@ -268,7 +282,7 @@ void PaintEditor::onStopPosChanged(double value)
     emitPaint();
 }
 
-void PaintEditor::onStopsChanged(const QVector<GradientStop> &stops)
+void PaintEditor::onStopsChanged(const QVector<GradientStop>& stops)
 {
     emitPaint();
 }
@@ -276,7 +290,8 @@ void PaintEditor::onStopsChanged(const QVector<GradientStop> &stops)
 void PaintEditor::onStopSelected(int index)
 {
     auto* widget = qobject_cast<QWidget*>(sender());
-    if (!widget) return;
+    if (!widget)
+        return;
 
     if (auto* edt = dynamic_cast<LinearGradientEditor*>(widget)) {
         auto stop = m_linearEditor->stop(index);
@@ -293,11 +308,12 @@ void PaintEditor::onStopSelected(int index)
 
 void PaintEditor::emitPaint()
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
     emit paintChanged(getPaint());
 }
 
-bool PaintEditor::filterScroll(QObject *obj, QEvent *event)
+bool PaintEditor::filterScroll(QObject* obj, QEvent* event)
 {
     if (obj == typeComboBox && event->type() == QEvent::Wheel) {
         event->ignore();

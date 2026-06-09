@@ -6,11 +6,10 @@
 #include "ui/widgets/GradientSlider.h"
 #include <QWidget>
 
-class ColorPicker : public QWidget
-{
+class ColorPicker : public QWidget {
     Q_OBJECT
 public:
-    explicit ColorPicker(QWidget *parent = nullptr);
+    explicit ColorPicker(QWidget* parent = nullptr);
 
     QColor color() const;
     void setColor(const QColor& color);

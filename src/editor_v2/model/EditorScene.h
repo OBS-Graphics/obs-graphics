@@ -8,8 +8,8 @@ struct SelectionId {
     enum class Level { None, Scene, Graphic, Element };
 
     Level level{Level::None};
-    int   graphicIndex{-1};
-    int   elementIndex{-1};
+    int graphicIndex{-1};
+    int elementIndex{-1};
 
     bool operator==(const SelectionId&) const = default;
 };
@@ -19,7 +19,10 @@ class EditorScene : public QObject {
 public:
     explicit EditorScene(SceneDocument* doc, QObject* parent = nullptr);
 
-    SelectionId selection() const { return m_selection; }
+    SelectionId selection() const
+    {
+        return m_selection;
+    }
     void setSelection(const SelectionId& id);
 
 signals:
@@ -30,5 +33,5 @@ private slots:
 
 private:
     SceneDocument* m_doc;
-    SelectionId    m_selection;
+    SelectionId m_selection;
 };

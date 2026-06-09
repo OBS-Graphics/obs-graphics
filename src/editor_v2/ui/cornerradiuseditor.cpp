@@ -4,8 +4,7 @@
 
 #include "../icons.h"
 
-CornerRadiusEditor::CornerRadiusEditor(QWidget *parent)
-    : QWidget{parent}
+CornerRadiusEditor::CornerRadiusEditor(QWidget* parent) : QWidget{parent}
 {
     auto* layout = new QGridLayout(this);
     layout->setColumnStretch(0, 0);
@@ -45,10 +44,10 @@ CornerRadiusEditor::CornerRadiusEditor(QWidget *parent)
     m_link->setCheckable(true);
     layout->addWidget(m_link, 1, 1, Qt::AlignCenter);
 
-    connect(m_tl,   &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
+    connect(m_tl, &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
     connect(m_tr, &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
-    connect(m_br,  &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
-    connect(m_bl,  &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
+    connect(m_br, &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
+    connect(m_bl, &QDoubleSpinBox::valueChanged, this, &CornerRadiusEditor::onSpinChange);
     connect(m_link, &QPushButton::toggled, this, &CornerRadiusEditor::onLinkClick);
 }
 
@@ -62,7 +61,7 @@ void CornerRadiusEditor::setValues(float tl, float tr, float br, float bl)
     m_updating = false;
 }
 
-void CornerRadiusEditor::getValues(float &tl, float &tr, float &br, float &bl) const
+void CornerRadiusEditor::getValues(float& tl, float& tr, float& br, float& bl) const
 {
     tl = static_cast<float>(m_tl->value());
     tr = static_cast<float>(m_tr->value());
@@ -72,18 +71,15 @@ void CornerRadiusEditor::getValues(float &tl, float &tr, float &br, float &bl) c
 
 void CornerRadiusEditor::onSpinChange(double value)
 {
-    if (m_updating) return;
+    if (m_updating)
+        return;
 
     if (m_link->isChecked()) {
         setValues(value, value, value, value);
     }
 
-    emit valuesChanged(
-        static_cast<float>(m_tl->value()),
-        static_cast<float>(m_tr->value()),
-        static_cast<float>(m_br->value()),
-        static_cast<float>(m_bl->value())
-    );
+    emit valuesChanged(static_cast<float>(m_tl->value()), static_cast<float>(m_tr->value()),
+                       static_cast<float>(m_br->value()), static_cast<float>(m_bl->value()));
 }
 
 void CornerRadiusEditor::onLinkClick(bool checked)
@@ -94,7 +90,8 @@ void CornerRadiusEditor::onLinkClick(bool checked)
     m_link->setToolTip(checked ? "Unlink" : "Link");
     m_link->setIcon(qta()->icon(fa::fa_solid, checked ? fa::fa_link_slash : fa::fa_link));
 
-    if (!checked) return;
+    if (!checked)
+        return;
 
     // Sync all to TL value
     double val = m_tl->value();
@@ -104,15 +101,11 @@ void CornerRadiusEditor::onLinkClick(bool checked)
     m_bl->setValue(val);
     m_updating = false;
 
-    emit valuesChanged(
-        static_cast<float>(val),
-        static_cast<float>(val),
-        static_cast<float>(val),
-        static_cast<float>(val)
-    );
+    emit valuesChanged(static_cast<float>(val), static_cast<float>(val), static_cast<float>(val),
+                       static_cast<float>(val));
 }
 
-void CornerRadiusEditor::paintEvent(QPaintEvent *)
+void CornerRadiusEditor::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
 

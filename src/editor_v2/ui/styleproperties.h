@@ -1,20 +1,19 @@
 #ifndef STYLEPROPERTIES_H
 #define STYLEPROPERTIES_H
 
+#include "engine/types.hpp"
 #include "ui/cornerradiuseditor.h"
 #include "ui/painteditor.h"
-#include "engine/types.hpp"
-#include <string>
-#include <QWidget>
 #include <QDoubleSpinBox>
+#include <QWidget>
+#include <string>
 
 class SceneDocument;
 
-class StyleProperties : public QWidget
-{
+class StyleProperties : public QWidget {
     Q_OBJECT
 public:
-    explicit StyleProperties(SceneDocument* doc, QWidget *parent = nullptr);
+    explicit StyleProperties(SceneDocument* doc, QWidget* parent = nullptr);
 
     void setSelection(const std::string& graphicId, const std::string& elementId);
 

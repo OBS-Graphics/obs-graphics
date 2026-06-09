@@ -1,0 +1,44 @@
+#!/usr/bin/env zsh
+
+builtin emulate -L zsh
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+
+SCRIPT_DIR="${ZSH_ARGZERO:A:h}"
+REPO_ROOT="${SCRIPT_DIR:A:h}"
+HOOKS_DIR="${REPO_ROOT}/.git/hooks"
+PRE_COMMIT="${HOOKS_DIR}/pre-commit"
+
+if [[ ! -d "${HOOKS_DIR}" ]]; then
+  print -u2 "Error: ${HOOKS_DIR} not found. Run this from inside the repo."
+  exit 1
+fi
+
+cat > "${PRE_COMMIT}" << 'HOOK'
+#!/usr/bin/env zsh
+
+builtin emulate -L zsh
+setopt ERR_EXIT NO_UNSET PIPE_FAIL
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Collect staged C/C++ files that still exist on disk
+staged_files=()
+while IFS= read -r file; do
+  [[ -f "${REPO_ROOT}/${file}" ]] && staged_files+=("${REPO_ROOT}/${file}")
+done < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(c|cpp|h|hpp|mm|m)$' || true)
+
+if (( ${#staged_files} == 0 )); then
+  exit 0
+fi
+
+SCRIPT_HOME="${REPO_ROOT}/build-aux"
+export SCRIPT_HOME FORMATTER_NAME=clang
+
+"${REPO_ROOT}/build-aux/run-clang-format" "${staged_files[@]}"
+
+# Re-stage any files that were reformatted
+git add "${staged_files[@]}"
+HOOK
+
+chmod +x "${PRE_COMMIT}"
+print "Pre-commit hook installed at ${PRE_COMMIT}"

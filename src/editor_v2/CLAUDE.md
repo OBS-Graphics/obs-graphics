@@ -9,8 +9,6 @@ This is an OBS Studio plugin ("Graphics Source") that renders animated broadcast
 1. **OBS plugin** (`/` root) — a shared library (`.so`) loaded by OBS, built with the root `CMakeLists.txt`.
 2. **editor_v2** (`src/editor_v2/`) — a standalone Qt6 desktop app for authoring scenes, built with its own `CMakeLists.txt`. This is the active editor under development.
 
-There is also an older `src/editor/` that is no longer active.
-
 ## Build commands
 
 ### editor_v2 (standalone app — most common workflow)

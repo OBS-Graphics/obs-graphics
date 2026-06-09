@@ -56,4 +56,3 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE engine)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME})
 
-add_subdirectory(src/editor)

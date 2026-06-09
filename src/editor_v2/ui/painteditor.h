@@ -11,12 +11,11 @@
 #include "ui/widgets/LinearGradientEditor.h"
 #include "ui/widgets/RadialGradientEditor.h"
 
-class PaintEditor : public QWidget
-{
+class PaintEditor : public QWidget {
     Q_OBJECT
 
 public:
-    explicit PaintEditor(QWidget *parent = nullptr);
+    explicit PaintEditor(QWidget* parent = nullptr);
 
     Paint getPaint() const;
     void setPaint(const Paint& paint);
@@ -32,8 +31,8 @@ private slots:
     void onStopSelected(int index);
 
 private:
-    QComboBox *typeComboBox;
-    AdaptiveStack *mainSelector;
+    QComboBox* typeComboBox;
+    AdaptiveStack* mainSelector;
 
     // solid page
     ColorPicker* m_cpSolid;
@@ -51,7 +50,7 @@ private:
     bool m_updating{false}; // prevent recursion
 
     void emitPaint();
-    bool filterScroll(QObject *obj, QEvent *event);
+    bool filterScroll(QObject* obj, QEvent* event);
 };
 
 #endif // PAINTEDITOR_H

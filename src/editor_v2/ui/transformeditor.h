@@ -6,12 +6,11 @@
 
 #include "engine/types.hpp"
 
-class TransformEditor : public QWidget
-{
+class TransformEditor : public QWidget {
     Q_OBJECT
 
 public:
-    explicit TransformEditor(QWidget *parent = nullptr);
+    explicit TransformEditor(QWidget* parent = nullptr);
 
     void load(const Rectangle& bounds, float rotation);
 

@@ -2,8 +2,7 @@
 #include "ColorUtils.h"
 #include <QPainter>
 
-GradientSlider::GradientSlider(QWidget* parent)
-    : QSlider(Qt::Horizontal, parent)
+GradientSlider::GradientSlider(QWidget* parent) : QSlider(Qt::Horizontal, parent)
 {
     setMinimumWidth(24);
     setMinimumHeight(24);
@@ -23,9 +22,8 @@ void GradientSlider::paintEvent(QPaintEvent*)
     const int hPad = kHandleR + 2;
 
     const bool horiz = (orientation() == Qt::Horizontal);
-    QRect groove = horiz
-        ? QRect(hPad, 1, width() - 2 * hPad, height() - 2)
-        : QRect(1, hPad, width() - 2, height() - 2 * hPad);
+    QRect groove = horiz ? QRect(hPad, 1, width() - 2 * hPad, height() - 2)
+                         : QRect(1, hPad, width() - 2, height() - 2 * hPad);
 
     // Checkerboard for transparency indication
     p.save();
@@ -39,9 +37,8 @@ void GradientSlider::paintEvent(QPaintEvent*)
     }
     p.restore();
 
-    QLinearGradient grad = horiz
-        ? QLinearGradient(groove.topLeft(), groove.topRight())
-        : QLinearGradient(groove.bottomLeft(), groove.topLeft());
+    QLinearGradient grad = horiz ? QLinearGradient(groove.topLeft(), groove.topRight())
+                                 : QLinearGradient(groove.bottomLeft(), groove.topLeft());
     for (const auto& stop : m_stops)
         grad.setColorAt(stop.first, stop.second);
     p.fillRect(groove, grad);
@@ -50,9 +47,9 @@ void GradientSlider::paintEvent(QPaintEvent*)
     p.drawRect(groove);
 
     qreal t = (qreal)(value() - minimum()) / (maximum() - minimum());
-    QPoint handleCenter = horiz
-        ? QPoint(groove.left() + qRound(t * groove.width()), groove.center().y() + 2)
-        : QPoint(groove.center().x() + 2, groove.bottom() - qRound(t * groove.height()));
+    QPoint handleCenter =
+        horiz ? QPoint(groove.left() + qRound(t * groove.width()), groove.center().y() + 2)
+              : QPoint(groove.center().x() + 2, groove.bottom() - qRound(t * groove.height()));
 
     p.save();
     p.setRenderHint(QPainter::RenderHint::Antialiasing);

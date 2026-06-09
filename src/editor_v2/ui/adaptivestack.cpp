@@ -1,8 +1,8 @@
 #include "adaptivestack.h"
 
-AdaptiveStack::AdaptiveStack(QWidget *parent) : QWidget(parent) {}
+AdaptiveStack::AdaptiveStack(QWidget* parent) : QWidget(parent) {}
 
-void AdaptiveStack::addWidget(QWidget *w)
+void AdaptiveStack::addWidget(QWidget* w)
 {
     w->setParent(this);
     w->hide();
@@ -29,7 +29,7 @@ int AdaptiveStack::currentIndex() const
     return m_current;
 }
 
-QWidget *AdaptiveStack::currentWidget() const
+QWidget* AdaptiveStack::currentWidget() const
 {
     if (m_current >= 0 && m_current < m_pages.size())
         return m_pages[m_current];
@@ -38,19 +38,19 @@ QWidget *AdaptiveStack::currentWidget() const
 
 QSize AdaptiveStack::sizeHint() const
 {
-    auto *w = currentWidget();
+    auto* w = currentWidget();
     return w ? w->sizeHint() : QSize(0, 0);
 }
 
 QSize AdaptiveStack::minimumSizeHint() const
 {
-    auto *w = currentWidget();
+    auto* w = currentWidget();
     return w ? w->minimumSizeHint() : QSize(0, 0);
 }
 
-void AdaptiveStack::resizeEvent(QResizeEvent *e)
+void AdaptiveStack::resizeEvent(QResizeEvent* e)
 {
     QWidget::resizeEvent(e);
-    if (auto *w = currentWidget())
+    if (auto* w = currentWidget())
         w->setGeometry(rect());
 }

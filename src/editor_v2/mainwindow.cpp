@@ -1,18 +1,18 @@
 #include "mainwindow.h"
-#include "model/SceneDocument.h"
+#include "engine/graphic.h"
+#include "engine/json.hpp"
+#include "engine/scene.h"
+#include "icons.h"
 #include "model/EditorScene.h"
+#include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
 #include "ui/elementproperties.h"
 #include "ui/fontproperties.h"
 #include "ui/graphicproperties.h"
-#include "ui/styleproperties.h"
 #include "ui/sceneproperties.h"
+#include "ui/styleproperties.h"
 #include "ui/widgets/CanvasWidget.h"
 #include "ui/widgets/SceneTreeView.h"
-#include "engine/scene.h"
-#include "engine/graphic.h"
-#include "engine/json.hpp"
-#include "icons.h"
 
 #include <algorithm>
 #include <string>
@@ -30,11 +30,10 @@
 #include <QUndoStack>
 #include <QWidget>
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , m_doc(new SceneDocument(this))
-    , m_editorScene(new EditorScene(m_doc, this))
-    , m_canvas(new CanvasWidget(m_doc, m_editorScene, this))
+MainWindow::MainWindow(QWidget* parent)
+    : QMainWindow(parent), m_doc(new SceneDocument(this)),
+      m_editorScene(new EditorScene(m_doc, this)),
+      m_canvas(new CanvasWidget(m_doc, m_editorScene, this))
 {
     resize(1440, 860);
     setCentralWidget(m_canvas);
@@ -98,20 +97,17 @@ MainWindow::MainWindow(QWidget *parent)
     setupToolBar();
     updateWindowTitle();
 
-    connect(m_editorScene, &EditorScene::selectionChanged,
-            this, &MainWindow::onSelectionChanged);
+    connect(m_editorScene, &EditorScene::selectionChanged, this, &MainWindow::onSelectionChanged);
     connect(m_elementProperties, &ElementProperties::elementIdChanged,
             [this](const std::string& gi, const std::string& ei) {
                 m_styleProperties->setSelection(gi, ei);
                 m_fontProperties->setSelection(gi, ei);
             });
-    connect(m_doc, &SceneDocument::modifiedChanged,
-            this, &MainWindow::setWindowModified);
-    connect(m_doc, &SceneDocument::filePathChanged,
-            this, [this](const QString& path) {
-                updateWindowTitle();
-                statusBar()->showMessage(path.isEmpty() ? "Untitled" : path);
-            });
+    connect(m_doc, &SceneDocument::modifiedChanged, this, &MainWindow::setWindowModified);
+    connect(m_doc, &SceneDocument::filePathChanged, this, [this](const QString& path) {
+        updateWindowTitle();
+        statusBar()->showMessage(path.isEmpty() ? "Untitled" : path);
+    });
 
     statusBar()->showMessage("Untitled");
 }
@@ -169,9 +165,9 @@ void MainWindow::setupMenuBar()
 
     viewMenu->addSeparator();
 
-    auto* zoomInAct  = viewMenu->addAction("Zoom In",       m_canvas, &CanvasWidget::zoomIn);
-    auto* zoomOutAct = viewMenu->addAction("Zoom Out",      m_canvas, &CanvasWidget::zoomOut);
-    auto* fitAct     = viewMenu->addAction("Fit to Window", m_canvas, &CanvasWidget::fitToWindow);
+    auto* zoomInAct = viewMenu->addAction("Zoom In", m_canvas, &CanvasWidget::zoomIn);
+    auto* zoomOutAct = viewMenu->addAction("Zoom Out", m_canvas, &CanvasWidget::zoomOut);
+    auto* fitAct = viewMenu->addAction("Fit to Window", m_canvas, &CanvasWidget::fitToWindow);
     zoomInAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Equal));
     zoomOutAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
     fitAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
@@ -185,14 +181,17 @@ void MainWindow::setupMenuBar()
         act->setChecked(on);
         connect(act, &QAction::toggled, this, [this, flag](bool checked) {
             CanvasWidget::GuideFlags f = m_canvas->guides();
-            if (checked) f |= flag; else f &= ~flag;
+            if (checked)
+                f |= flag;
+            else
+                f &= ~flag;
             m_canvas->setGuides(f);
         });
     };
-    makeGuide("Rule of Thirds",    CanvasWidget::GuideRuleOfThirds, true);
-    makeGuide("Center Lines",      CanvasWidget::GuideCenterLines,  true);
-    makeGuide("Title Safe (90%)",  CanvasWidget::GuideTitleSafe,    false);
-    makeGuide("Action Safe (80%)", CanvasWidget::GuideActionSafe,   false);
+    makeGuide("Rule of Thirds", CanvasWidget::GuideRuleOfThirds, true);
+    makeGuide("Center Lines", CanvasWidget::GuideCenterLines, true);
+    makeGuide("Title Safe (90%)", CanvasWidget::GuideTitleSafe, false);
+    makeGuide("Action Safe (80%)", CanvasWidget::GuideActionSafe, false);
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
@@ -224,7 +223,10 @@ void MainWindow::setupToolBar()
         int maxN = 0;
         for (const auto& g : m_doc->scene().graphics) {
             if (g.id.rfind("graphic_", 0) == 0)
-                try { maxN = std::max(maxN, std::stoi(g.id.substr(8))); } catch (...) {}
+                try {
+                    maxN = std::max(maxN, std::stoi(g.id.substr(8)));
+                } catch (...) {
+                }
         }
         std::string newId = "graphic_" + std::to_string(maxN + 1);
         int newZ = (int)m_doc->scene().graphics.size();
@@ -247,20 +249,27 @@ void MainWindow::setupToolBar()
     connect(addRectAct, &QAction::triggered, this, [this]() {
         const SelectionId sel = m_editorScene->selection();
         int gi = -1;
-        if (sel.level == SelectionId::Level::Graphic) gi = sel.graphicIndex;
-        if (sel.level == SelectionId::Level::Element) gi = sel.graphicIndex;
-        if (gi < 0 || gi >= (int)m_doc->scene().graphics.size()) return;
+        if (sel.level == SelectionId::Level::Graphic)
+            gi = sel.graphicIndex;
+        if (sel.level == SelectionId::Level::Element)
+            gi = sel.graphicIndex;
+        if (gi < 0 || gi >= (int)m_doc->scene().graphics.size())
+            return;
         const Graphic& graphic = m_doc->scene().graphics[gi];
         const std::string gid = graphic.id;
         int maxN = 0;
         for (const auto& el : graphic.elements)
             if (el.id.rfind("element_", 0) == 0)
-                try { maxN = std::max(maxN, std::stoi(el.id.substr(8))); } catch (...) {}
+                try {
+                    maxN = std::max(maxN, std::stoi(el.id.substr(8)));
+                } catch (...) {
+                }
         std::string newId = "element_" + std::to_string(maxN + 1);
         int newZ = (int)graphic.elements.size();
         using json = nlohmann::json;
-        json j = {{"id",newId},{"type","rectangle"},{"x",100},{"y",100},
-                  {"w",200},{"h",80},{"fill",{0.5,0.5,0.9,1.0}},{"z_order",newZ}};
+        json j = {
+            {"id", newId}, {"type", "rectangle"},          {"x", 100},       {"y", 100}, {"w", 200},
+            {"h", 80},     {"fill", {0.5, 0.5, 0.9, 1.0}}, {"z_order", newZ}};
         m_doc->undoStack()->push(new AddElementCmd(m_doc, gid, std::move(j)));
         const auto& els = m_doc->scene().graphics[gi].elements;
         for (int ei = 0; ei < (int)els.size(); ++ei) {
@@ -278,21 +287,30 @@ void MainWindow::setupToolBar()
     connect(addTextAct, &QAction::triggered, this, [this]() {
         const SelectionId sel = m_editorScene->selection();
         int gi = -1;
-        if (sel.level == SelectionId::Level::Graphic) gi = sel.graphicIndex;
-        if (sel.level == SelectionId::Level::Element) gi = sel.graphicIndex;
-        if (gi < 0 || gi >= (int)m_doc->scene().graphics.size()) return;
+        if (sel.level == SelectionId::Level::Graphic)
+            gi = sel.graphicIndex;
+        if (sel.level == SelectionId::Level::Element)
+            gi = sel.graphicIndex;
+        if (gi < 0 || gi >= (int)m_doc->scene().graphics.size())
+            return;
         const Graphic& graphic = m_doc->scene().graphics[gi];
         const std::string gid = graphic.id;
         int maxN = 0;
         for (const auto& el : graphic.elements)
             if (el.id.rfind("text_", 0) == 0)
-                try { maxN = std::max(maxN, std::stoi(el.id.substr(5))); } catch (...) {}
+                try {
+                    maxN = std::max(maxN, std::stoi(el.id.substr(5)));
+                } catch (...) {
+                }
         std::string newId = "text_" + std::to_string(maxN + 1);
         int newZ = (int)graphic.elements.size();
         using json = nlohmann::json;
-        json j = {{"id",newId},{"type","text"},{"x",100},{"y",100},{"w",300},{"h",60},
-                  {"text","New Text"},{"font_family","Sans"},{"font_size",36},
-                  {"color",{1.0,1.0,1.0,1.0}},{"z_order",newZ}};
+        json j = {{"id", newId},        {"type", "text"},
+                  {"x", 100},           {"y", 100},
+                  {"w", 300},           {"h", 60},
+                  {"text", "New Text"}, {"font_family", "Sans"},
+                  {"font_size", 36},    {"color", {1.0, 1.0, 1.0, 1.0}},
+                  {"z_order", newZ}};
         m_doc->undoStack()->push(new AddElementCmd(m_doc, gid, std::move(j)));
         const auto& els = m_doc->scene().graphics[gi].elements;
         for (int ei = 0; ei < (int)els.size(); ++ei) {
@@ -338,39 +356,44 @@ void MainWindow::setupToolBar()
 
 void MainWindow::onNew()
 {
-    if (!maybeSave()) return;
+    if (!maybeSave())
+        return;
     m_doc->reset();
     m_editorScene->setSelection(SelectionId{});
 }
 
 void MainWindow::onOpen()
 {
-    if (!maybeSave()) return;
-    QString path = QFileDialog::getOpenFileName(
-        this, "Open Scene", QString(), "JSON Files (*.json);;All Files (*)");
-    if (path.isEmpty()) return;
+    if (!maybeSave())
+        return;
+    QString path = QFileDialog::getOpenFileName(this, "Open Scene", QString(),
+                                                "JSON Files (*.json);;All Files (*)");
+    if (path.isEmpty())
+        return;
     if (!m_doc->load(path))
-        QMessageBox::warning(this, "Open Failed",
-                             QString("Could not open file:\n%1").arg(path));
+        QMessageBox::warning(this, "Open Failed", QString("Could not open file:\n%1").arg(path));
     else
         m_editorScene->setSelection(SelectionId{});
 }
 
 void MainWindow::onSave()
 {
-    if (m_doc->filePath().isEmpty()) { onSaveAs(); return; }
+    if (m_doc->filePath().isEmpty()) {
+        onSaveAs();
+        return;
+    }
     if (!m_doc->save())
         QMessageBox::warning(this, "Save Failed", "Could not save the file.");
 }
 
 void MainWindow::onSaveAs()
 {
-    QString path = QFileDialog::getSaveFileName(
-        this, "Save Scene As", QString(), "JSON Files (*.json);;All Files (*)");
-    if (path.isEmpty()) return;
+    QString path = QFileDialog::getSaveFileName(this, "Save Scene As", QString(),
+                                                "JSON Files (*.json);;All Files (*)");
+    if (path.isEmpty())
+        return;
     if (!m_doc->saveAs(path))
-        QMessageBox::warning(this, "Save Failed",
-                             QString("Could not save file:\n%1").arg(path));
+        QMessageBox::warning(this, "Save Failed", QString("Could not save file:\n%1").arg(path));
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -380,13 +403,13 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 bool MainWindow::maybeSave()
 {
-    if (!m_doc->isModified()) return true;
+    if (!m_doc->isModified())
+        return true;
     auto result = QMessageBox::question(
         this, "Unsaved Changes",
         QString("The scene \"%1\" has unsaved changes.\nSave before continuing?")
             .arg(m_doc->sceneName()),
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
-        QMessageBox::Save);
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
     if (result == QMessageBox::Save) {
         onSave();
         return !m_doc->isModified();
@@ -396,22 +419,24 @@ bool MainWindow::maybeSave()
 
 void MainWindow::updateWindowTitle()
 {
-    setWindowTitle(QString("%1[*] — obs-graphics Scene Editor")
-                       .arg(m_doc->sceneName()));
+    setWindowTitle(QString("%1[*] — obs-graphics Scene Editor").arg(m_doc->sceneName()));
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────
 
 void MainWindow::updateToolBarState(SelectionId id)
 {
-    bool hasGraphic = (id.level == SelectionId::Level::Graphic ||
-                       id.level == SelectionId::Level::Element);
-    bool hasAny     = (id.level == SelectionId::Level::Graphic ||
-                       id.level == SelectionId::Level::Element);
+    bool hasGraphic =
+        (id.level == SelectionId::Level::Graphic || id.level == SelectionId::Level::Element);
+    bool hasAny =
+        (id.level == SelectionId::Level::Graphic || id.level == SelectionId::Level::Element);
 
-    if (m_addRectAction) m_addRectAction->setEnabled(hasGraphic);
-    if (m_addTextAction) m_addTextAction->setEnabled(hasGraphic);
-    if (m_deleteAction)  m_deleteAction->setEnabled(hasAny);
+    if (m_addRectAction)
+        m_addRectAction->setEnabled(hasGraphic);
+    if (m_addTextAction)
+        m_addTextAction->setEnabled(hasGraphic);
+    if (m_deleteAction)
+        m_deleteAction->setEnabled(hasAny);
 }
 
 void MainWindow::onSelectionChanged(SelectionId id)
@@ -420,9 +445,11 @@ void MainWindow::onSelectionChanged(SelectionId id)
 
     if (id.level == SelectionId::Level::Element) {
         const Scene& s = m_doc->scene();
-        if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size()) return;
+        if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size())
+            return;
         const Graphic& g = s.graphics[id.graphicIndex];
-        if (id.elementIndex < 0 || id.elementIndex >= (int)g.elements.size()) return;
+        if (id.elementIndex < 0 || id.elementIndex >= (int)g.elements.size())
+            return;
         const std::string gi = g.id;
         const std::string ei = g.elements[id.elementIndex].id;
         m_elementProperties->setSelection(gi, ei);
@@ -430,26 +457,27 @@ void MainWindow::onSelectionChanged(SelectionId id)
         m_fontProperties->setSelection(gi, ei);
 
         const bool isText = g.elements[id.elementIndex].type == ElementType::Text;
-        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    true);
-        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   true);
-        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    isText);
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, true);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, true);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex, isText);
         m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, false);
         if (m_propTabs->currentIndex() == m_graphicTabIndex)
             m_propTabs->tabBar()->setCurrentIndex(m_elemTabIndex);
     } else if (id.level == SelectionId::Level::Graphic) {
         const Scene& s = m_doc->scene();
-        if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size()) return;
+        if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size())
+            return;
         const std::string gi = s.graphics[id.graphicIndex].id;
         m_graphicProperties->setSelection(gi);
         m_elementProperties->setSelection({}, {});
         m_styleProperties->setSelection({}, {});
         m_fontProperties->setSelection({}, {});
 
-        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    false);
-        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   false);
-        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, false);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, false);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex, false);
         m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, true);
-        if (m_propTabs->currentIndex() == m_elemTabIndex  ||
+        if (m_propTabs->currentIndex() == m_elemTabIndex ||
             m_propTabs->currentIndex() == m_styleTabIndex ||
             m_propTabs->currentIndex() == m_fontTabIndex)
             m_propTabs->setCurrentIndex(m_graphicTabIndex);
@@ -458,9 +486,9 @@ void MainWindow::onSelectionChanged(SelectionId id)
         m_styleProperties->setSelection({}, {});
         m_fontProperties->setSelection({}, {});
 
-        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    false);
-        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   false);
-        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, false);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, false);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex, false);
         m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, false);
     }
     m_propTabs->tabBar()->updateGeometry();

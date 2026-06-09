@@ -31,35 +31,42 @@ class CanvasWidget : public QWidget {
 
 public:
     enum GuideFlag {
-        GuideNone         = 0,
+        GuideNone = 0,
         GuideRuleOfThirds = 1 << 0,
-        GuideCenterLines  = 1 << 1,
-        GuideTitleSafe    = 1 << 2,
-        GuideActionSafe   = 1 << 3,
+        GuideCenterLines = 1 << 1,
+        GuideTitleSafe = 1 << 2,
+        GuideActionSafe = 1 << 3,
     };
     Q_DECLARE_FLAGS(GuideFlags, GuideFlag)
 
-    explicit CanvasWidget(SceneDocument* doc,
-                          EditorScene*   editorState,
-                          QWidget*       parent = nullptr);
+    explicit CanvasWidget(SceneDocument* doc, EditorScene* editorState, QWidget* parent = nullptr);
     ~CanvasWidget() override;
 
     void startAnimationPreview(int graphicIndex, bool playIn);
     void stopAnimationPreview();
 
     // Guides
-    void       setGuides(GuideFlags flags);
-    GuideFlags guides() const { return m_guideFlags; }
+    void setGuides(GuideFlags flags);
+    GuideFlags guides() const
+    {
+        return m_guideFlags;
+    }
 
     // Snapping
     void setSnapping(bool on);
-    bool snapping() const { return m_snappingEnabled; }
+    bool snapping() const
+    {
+        return m_snappingEnabled;
+    }
 
     // Zoom / pan
-    void   zoomIn();
-    void   zoomOut();
-    void   fitToWindow();
-    double zoom() const { return m_zoom; }
+    void zoomIn();
+    void zoomOut();
+    void fitToWindow();
+    double zoom() const
+    {
+        return m_zoom;
+    }
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -78,13 +85,13 @@ private slots:
 
 private:
     // Coordinate helpers (all derived from letterboxRect — zoom/pan automatic)
-    QRectF  letterboxRect() const;
+    QRectF letterboxRect() const;
     QPointF widgetToScene(QPointF pt) const;
-    QRectF  sceneToWidget(const Rectangle& r) const;
+    QRectF sceneToWidget(const Rectangle& r) const;
 
     // Hit testing
     SelectionId hitTest(QPointF scenePt) const;
-    int         hitHandle(QPointF widgetPt) const;
+    int hitHandle(QPointF widgetPt) const;
 
     // Rendering
     void renderStaticScene();
@@ -116,45 +123,45 @@ private:
 
     // ── Document / selection ──────────────────────────────────────────────────
     SceneDocument* m_doc;
-    EditorScene*   m_editorState;
+    EditorScene* m_editorState;
 
     // ── Cairo offscreen surface ───────────────────────────────────────────────
     cairo_surface_t* m_surface{nullptr};
-    cairo_t*         m_cr{nullptr};
-    QImage           m_image;   // zero-copy wrapper around m_surface pixels
+    cairo_t* m_cr{nullptr};
+    QImage m_image; // zero-copy wrapper around m_surface pixels
 
     // ── Animation preview ─────────────────────────────────────────────────────
-    QTimer*                m_animTimer{nullptr};
-    QElapsedTimer          m_elapsedTimer;
+    QTimer* m_animTimer{nullptr};
+    QElapsedTimer m_elapsedTimer;
     std::unique_ptr<Scene> m_previewScene;
 
     // ── Guides ───────────────────────────────────────────────────────────────
     GuideFlags m_guideFlags{GuideRuleOfThirds | GuideCenterLines};
 
     // ── Snapping ─────────────────────────────────────────────────────────────
-    bool          m_snappingEnabled{true};
-    QList<double> m_snapLinesX;   // active snap lines in scene coords during drag
+    bool m_snappingEnabled{true};
+    QList<double> m_snapLinesX; // active snap lines in scene coords during drag
     QList<double> m_snapLinesY;
 
     // ── Zoom + pan ────────────────────────────────────────────────────────────
-    double  m_zoom{1.0};
+    double m_zoom{1.0};
     QPointF m_panOffset{0.0, 0.0};
 
     // Middle-button pan
-    bool    m_panning{false};
+    bool m_panning{false};
     QPointF m_panStart;
     QPointF m_panStartOffset;
 
     // ── Element drag / resize ─────────────────────────────────────────────────
     enum class DragMode { None, Move, Resize, MoveGraphic };
-    DragMode  m_dragMode{DragMode::None};
-    int       m_dragHandle{-1};
-    QPointF   m_dragStartWidget;
-    QPointF   m_dragStartScene;
+    DragMode m_dragMode{DragMode::None};
+    int m_dragHandle{-1};
+    QPointF m_dragStartWidget;
+    QPointF m_dragStartScene;
     Rectangle m_dragOrigBounds;
-    int       m_dragGi{-1};
-    int       m_dragEi{-1};
-    bool      m_dragging{false};
+    int m_dragGi{-1};
+    int m_dragEi{-1};
+    bool m_dragging{false};
 
     std::vector<Rectangle> m_graphicOrigBounds;
 };

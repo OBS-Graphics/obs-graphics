@@ -15,12 +15,11 @@ class CanvasWidget;
 class QAction;
 class QCloseEvent;
 
-class MainWindow : public QMainWindow
-{
+class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget* parent = nullptr);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -39,19 +38,19 @@ private:
     void updateToolBarState(SelectionId sel);
     bool maybeSave();
 
-    SceneDocument*     m_doc;
-    EditorScene*       m_editorScene;
-    CanvasWidget*      m_canvas;
+    SceneDocument* m_doc;
+    EditorScene* m_editorScene;
+    CanvasWidget* m_canvas;
     ElementProperties* m_elementProperties;
-    StyleProperties*   m_styleProperties;
-    SceneProperties*   m_sceneProperties;
-    FontProperties*    m_fontProperties{nullptr};
+    StyleProperties* m_styleProperties;
+    SceneProperties* m_sceneProperties;
+    FontProperties* m_fontProperties{nullptr};
     GraphicProperties* m_graphicProperties{nullptr};
-    QTabWidget*        m_propTabs{nullptr};
-    int                m_elemTabIndex{-1};
-    int                m_styleTabIndex{-1};
-    int                m_fontTabIndex{-1};
-    int                m_graphicTabIndex{-1};
+    QTabWidget* m_propTabs{nullptr};
+    int m_elemTabIndex{-1};
+    int m_styleTabIndex{-1};
+    int m_fontTabIndex{-1};
+    int m_graphicTabIndex{-1};
 
     QAction* m_undoAction{nullptr};
     QAction* m_redoAction{nullptr};

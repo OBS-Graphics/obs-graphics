@@ -1,11 +1,10 @@
 #pragma once
 
 #include <QDoubleSpinBox>
-#include <QWidget>
 #include <QPushButton>
+#include <QWidget>
 
-class PaddingEditor : public QWidget
-{
+class PaddingEditor : public QWidget {
     Q_OBJECT
 public:
     explicit PaddingEditor(QWidget* parent = nullptr);

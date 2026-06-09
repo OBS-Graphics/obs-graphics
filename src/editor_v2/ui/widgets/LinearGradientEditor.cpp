@@ -1,11 +1,11 @@
 #include "LinearGradientEditor.h"
-#include "GradientHandlePainter.h"
 #include "ColorUtils.h"
-#include <QPainter>
-#include <QMouseEvent>
-#include <QContextMenuEvent>
+#include "GradientHandlePainter.h"
 #include <QColorDialog>
+#include <QContextMenuEvent>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QPainter>
 #include <QResizeEvent>
 #include <algorithm>
 
@@ -18,14 +18,16 @@ static QGradientStops toQGradientStops(const QVector<GradientStop>& stops)
     return r;
 }
 
-LinearGradientEditor::LinearGradientEditor(QWidget* parent)
-    : QWidget(parent)
+LinearGradientEditor::LinearGradientEditor(QWidget* parent) : QWidget(parent)
 {
     setStops({{0.0, Qt::black}, {1.0, Qt::white}});
     setMinimumSize(100, 100);
 }
 
-QVector<GradientStop> LinearGradientEditor::stops() const { return m_stops; }
+QVector<GradientStop> LinearGradientEditor::stops() const
+{
+    return m_stops;
+}
 
 void LinearGradientEditor::setStops(const QVector<GradientStop>& stops)
 {
@@ -40,8 +42,16 @@ void LinearGradientEditor::setStops(const QVector<GradientStop>& stops)
 }
 
 // p1/p2 are normalized (0-1); setP1/setP2 accept the same
-void LinearGradientEditor::setP1(QPointF p) { m_p1 = p; update(); }
-void LinearGradientEditor::setP2(QPointF p) { m_p2 = p; update(); }
+void LinearGradientEditor::setP1(QPointF p)
+{
+    m_p1 = p;
+    update();
+}
+void LinearGradientEditor::setP2(QPointF p)
+{
+    m_p2 = p;
+    update();
+}
 
 void LinearGradientEditor::updateStops()
 {
@@ -50,7 +60,10 @@ void LinearGradientEditor::updateStops()
     update();
 }
 
-QSize LinearGradientEditor::sizeHint() const { return {300, 200}; }
+QSize LinearGradientEditor::sizeHint() const
+{
+    return {300, 200};
+}
 
 void LinearGradientEditor::resizeEvent(QResizeEvent* e)
 {
@@ -71,7 +84,8 @@ qreal LinearGradientEditor::tFromPoint(QPointF p) const
     QPointF n = toNorm(p);
     QPointF ab = m_p2 - m_p1;
     qreal len2 = ab.x() * ab.x() + ab.y() * ab.y();
-    if (len2 < 1e-10) return 0.0;
+    if (len2 < 1e-10)
+        return 0.0;
     qreal t = ((n.x() - m_p1.x()) * ab.x() + (n.y() - m_p1.y()) * ab.y()) / len2;
     return qBound(0.0, t, 1.0);
 }
@@ -81,32 +95,39 @@ int LinearGradientEditor::hitTestHandle(QPointF p) const
     int n = m_stops.size();
     QPointF p1px = toPixel(m_p1), p2px = toPixel(m_p2);
 
-    if (m_selected == 0        && GHP::hitCircle(p, p1px, kEndpointR)) return 0;
-    if (m_selected == n - 1    && GHP::hitCircle(p, p2px, kEndpointR)) return n - 1;
-    if (m_selected >= 1 && m_selected <= n - 2
-        && GHP::hitDiamond(p, stopPos(m_selected), kDiamondD))         return m_selected;
+    if (m_selected == 0 && GHP::hitCircle(p, p1px, kEndpointR))
+        return 0;
+    if (m_selected == n - 1 && GHP::hitCircle(p, p2px, kEndpointR))
+        return n - 1;
+    if (m_selected >= 1 && m_selected <= n - 2 &&
+        GHP::hitDiamond(p, stopPos(m_selected), kDiamondD))
+        return m_selected;
 
-    if (GHP::hitCircle(p, p2px, kEndpointR)) return n - 1;
-    if (GHP::hitCircle(p, p1px, kEndpointR)) return 0;
+    if (GHP::hitCircle(p, p2px, kEndpointR))
+        return n - 1;
+    if (GHP::hitCircle(p, p1px, kEndpointR))
+        return 0;
     for (int i = n - 2; i >= 1; --i)
-        if (GHP::hitDiamond(p, stopPos(i), kDiamondD)) return i;
+        if (GHP::hitDiamond(p, stopPos(i), kDiamondD))
+            return i;
     return -1;
 }
 
 void LinearGradientEditor::sortStops()
 {
-    std::stable_sort(m_stops.begin(), m_stops.end(),
-        [](const GradientStop& a, const GradientStop& b){ return a.position < b.position; });
+    std::stable_sort(
+        m_stops.begin(), m_stops.end(),
+        [](const GradientStop& a, const GradientStop& b) { return a.position < b.position; });
     if (!m_stops.isEmpty()) {
         m_stops.first().position = 0.0;
-        m_stops.last().position  = 1.0;
+        m_stops.last().position = 1.0;
     }
 }
 
 void LinearGradientEditor::editStopColor(int idx)
 {
-    QColor chosen = QColorDialog::getColor(
-        m_stops[idx].color, this, "Stop Color", QColorDialog::ShowAlphaChannel);
+    QColor chosen = QColorDialog::getColor(m_stops[idx].color, this, "Stop Color",
+                                           QColorDialog::ShowAlphaChannel);
     if (chosen.isValid()) {
         m_stops[idx].color = chosen;
         emit stopsChanged(m_stops);
@@ -164,13 +185,15 @@ void LinearGradientEditor::paintEvent(QPaintEvent*)
     for (int pass = 0; pass < 2; ++pass) {
         for (int i = 0; i < n; ++i) {
             bool sel = (i == m_selected);
-            if (pass == 0 && sel)  continue;
-            if (pass == 1 && !sel) continue;
+            if (pass == 0 && sel)
+                continue;
+            if (pass == 1 && !sel)
+                continue;
 
             if (i == 0)
                 GHP::paintCircleHandle(p, p1px, kEndpointR, m_stops[0].color, sel, palette());
             else if (i == n - 1)
-                GHP::paintCircleHandle(p, p2px, kEndpointR, m_stops[n-1].color, sel, palette());
+                GHP::paintCircleHandle(p, p2px, kEndpointR, m_stops[n - 1].color, sel, palette());
             else
                 GHP::paintDiamondHandle(p, stopPos(i), kDiamondD, m_stops[i].color, sel, palette());
         }
@@ -179,7 +202,8 @@ void LinearGradientEditor::paintEvent(QPaintEvent*)
 
 void LinearGradientEditor::mousePressEvent(QMouseEvent* e)
 {
-    if (e->button() != Qt::LeftButton) return;
+    if (e->button() != Qt::LeftButton)
+        return;
 
     QPointF pos = e->position();
     int h = hitTestHandle(pos);
@@ -193,7 +217,7 @@ void LinearGradientEditor::mousePressEvent(QMouseEvent* e)
             m_draggingP2 = true;
             m_dragOffset = pos - toPixel(m_p2);
         } else {
-            m_dragging   = h;
+            m_dragging = h;
             m_dragOffset = pos - stopPos(h);
         }
         update();
@@ -207,18 +231,19 @@ void LinearGradientEditor::mousePressEvent(QMouseEvent* e)
 
 void LinearGradientEditor::mouseMoveEvent(QMouseEvent* e)
 {
-    if (!(e->buttons() & Qt::LeftButton)) return;
+    if (!(e->buttons() & Qt::LeftButton))
+        return;
     QPointF pos = e->position();
 
     if (m_draggingP1) {
         QPointF newPx = pos - m_dragOffset;
-        m_p1 = {qBound(0.0, width()  > 0 ? newPx.x() / width()  : 0.0, 1.0),
+        m_p1 = {qBound(0.0, width() > 0 ? newPx.x() / width() : 0.0, 1.0),
                 qBound(0.0, height() > 0 ? newPx.y() / height() : 0.0, 1.0)};
         emit p1Changed(m_p1);
         update();
     } else if (m_draggingP2) {
         QPointF newPx = pos - m_dragOffset;
-        m_p2 = {qBound(0.0, width()  > 0 ? newPx.x() / width()  : 0.0, 1.0),
+        m_p2 = {qBound(0.0, width() > 0 ? newPx.x() / width() : 0.0, 1.0),
                 qBound(0.0, height() > 0 ? newPx.y() / height() : 0.0, 1.0)};
         emit p2Changed(m_p2);
         update();
@@ -232,17 +257,26 @@ void LinearGradientEditor::mouseMoveEvent(QMouseEvent* e)
 
 void LinearGradientEditor::mouseReleaseEvent(QMouseEvent* e)
 {
-    if (e->button() != Qt::LeftButton) return;
+    if (e->button() != Qt::LeftButton)
+        return;
 
-    if (m_draggingP1) { m_draggingP1 = false; update(); return; }
-    if (m_draggingP2) { m_draggingP2 = false; update(); return; }
+    if (m_draggingP1) {
+        m_draggingP1 = false;
+        update();
+        return;
+    }
+    if (m_draggingP2) {
+        m_draggingP2 = false;
+        update();
+        return;
+    }
 
     if (m_dragging >= 0) {
         GradientStop dragged = m_stops[m_dragging];
         sortStops();
         for (int i = 0; i < m_stops.size(); ++i) {
-            if (qAbs(m_stops[i].position - dragged.position) < 1e-9
-                && m_stops[i].color == dragged.color) {
+            if (qAbs(m_stops[i].position - dragged.position) < 1e-9 &&
+                m_stops[i].color == dragged.color) {
                 m_selected = i;
                 emit stopSelected(i);
                 break;
@@ -256,7 +290,8 @@ void LinearGradientEditor::mouseReleaseEvent(QMouseEvent* e)
 void LinearGradientEditor::mouseDoubleClickEvent(QMouseEvent* e)
 {
     int h = hitTestHandle(e->position());
-    if (h >= 0) editStopColor(h);
+    if (h >= 0)
+        editStopColor(h);
 }
 
 void LinearGradientEditor::contextMenuEvent(QContextMenuEvent* e)

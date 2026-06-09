@@ -22,16 +22,16 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 extern "C" {
 #endif
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
 
-extern const char *PLUGIN_NAME;
-extern const char *PLUGIN_VERSION;
+extern const char* PLUGIN_NAME;
+extern const char* PLUGIN_VERSION;
 
-void obs_log(int log_level, const char *format, ...);
-extern void blogva(int log_level, const char *format, va_list args);
+void obs_log(int log_level, const char* format, ...);
+extern void blogva(int log_level, const char* format, va_list args);
 
 #ifdef __cplusplus
 }

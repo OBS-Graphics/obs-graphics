@@ -2,8 +2,7 @@
 #include <QPainter>
 #include <QStyleOptionSlider>
 
-HueSlider::HueSlider(QWidget* parent)
-    : QSlider(Qt::Horizontal, parent)
+HueSlider::HueSlider(QWidget* parent) : QSlider(Qt::Horizontal, parent)
 {
     setRange(0, 360);
 }
@@ -25,9 +24,8 @@ void HueSlider::paintEvent(QPaintEvent*)
     else
         groove.adjust(0, handleRadius + 2, 0, -(handleRadius + 3));
 
-    QLinearGradient grad = horiz
-        ? QLinearGradient(groove.left(), 0, groove.right(), 0)
-        : QLinearGradient(0, groove.bottom(), 0, groove.top());
+    QLinearGradient grad = horiz ? QLinearGradient(groove.left(), 0, groove.right(), 0)
+                                 : QLinearGradient(0, groove.bottom(), 0, groove.top());
     for (int h = 0; h <= 360; h += 6)
         grad.setColorAt(h / 360.0, QColor::fromHsv(h % 360, 255, 255));
 

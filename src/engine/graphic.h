@@ -1,15 +1,10 @@
 #pragma once
 
-#include "element.h"
 #include "data-source.h"
+#include "element.h"
 #include <vector>
 
-enum class GraphicState {
-    Hidden,
-    AnimatingIn,
-    Visible,
-    AnimatingOut
-};
+enum class GraphicState { Hidden, AnimatingIn, Visible, AnimatingOut };
 
 struct Graphic {
     std::string id;
@@ -21,7 +16,11 @@ struct Graphic {
     IDataSource* dataSource{nullptr};
 
     void TriggerIn(size_t recordIndex = 0);
-    void TriggerOut() { state = GraphicState::AnimatingOut; timer = 0.0f; }
+    void TriggerOut()
+    {
+        state = GraphicState::AnimatingOut;
+        timer = 0.0f;
+    }
 
     Element& GetById(const std::string& id);
 

@@ -6,8 +6,8 @@
 
 namespace GHP {
 
-inline void paintCircleHandle(QPainter& p, QPointF center, int r,
-                               QColor color, bool selected, const QPalette& pal)
+inline void paintCircleHandle(QPainter& p, QPointF center, int r, QColor color, bool selected,
+                              const QPalette& pal)
 {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
@@ -23,8 +23,8 @@ inline void paintCircleHandle(QPainter& p, QPointF center, int r,
     p.drawEllipse(center, r, r);
 }
 
-inline void paintDiamondHandle(QPainter& p, QPointF center, int d,
-                                QColor color, bool selected, const QPalette& pal)
+inline void paintDiamondHandle(QPainter& p, QPointF center, int d, QColor color, bool selected,
+                               const QPalette& pal)
 {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
@@ -45,11 +45,10 @@ inline void paintDiamondHandle(QPainter& p, QPointF center, int d,
     p.restore();
 }
 
-inline void paintNubHandle(QPainter& p, QPointF center, int halfSize,
-                            bool selected, const QPalette& pal)
+inline void paintNubHandle(QPainter& p, QPointF center, int halfSize, bool selected,
+                           const QPalette& pal)
 {
-    QRectF r(center.x() - halfSize, center.y() - halfSize,
-             2 * halfSize, 2 * halfSize);
+    QRectF r(center.x() - halfSize, center.y() - halfSize, 2 * halfSize, 2 * halfSize);
 
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
@@ -90,7 +89,8 @@ inline bool hitSegment(QPointF p, QPointF a, QPointF b, qreal tol, qreal* outT =
     QPointF closest = a + t * ab;
     qreal dx = p.x() - closest.x(), dy = p.y() - closest.y();
     bool hit = (dx * dx + dy * dy) <= tol * tol;
-    if (hit && outT) *outT = t;
+    if (hit && outT)
+        *outT = t;
     return hit;
 }
 

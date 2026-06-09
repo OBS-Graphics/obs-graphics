@@ -1,7 +1,7 @@
 #include "graphic.h"
 
-#include <numeric>
 #include <algorithm>
+#include <numeric>
 #include <stdexcept>
 
 void Graphic::TriggerIn(size_t recordIndex)
@@ -28,9 +28,9 @@ playout:
     timer = 0.0f;
 }
 
-Element &Graphic::GetById(const std::string &id)
+Element& Graphic::GetById(const std::string& id)
 {
-    for (auto &el : elements) {
+    for (auto& el : elements) {
         if (el.id == id)
             return el;
     }
@@ -47,8 +47,7 @@ void Graphic::Tick(float timeStep)
 
     bool allDone = true;
     for (const auto& el : elements) {
-        const auto& def = state == GraphicState::AnimatingIn
-            ? el.inAnimation : el.outAnimation;
+        const auto& def = state == GraphicState::AnimatingIn ? el.inAnimation : el.outAnimation;
         if (timer < def.delay + def.duration) {
             allDone = false;
             break;
@@ -56,20 +55,19 @@ void Graphic::Tick(float timeStep)
     }
 
     if (allDone) {
-        state = state == GraphicState::AnimatingIn
-            ? GraphicState::Visible : GraphicState::Hidden;
+        state = state == GraphicState::AnimatingIn ? GraphicState::Visible : GraphicState::Hidden;
     }
 }
 
-void Graphic::Render(cairo_t *ctx) const
+void Graphic::Render(cairo_t* ctx) const
 {
-    if (state == GraphicState::Hidden) return;
+    if (state == GraphicState::Hidden)
+        return;
 
     std::vector<size_t> eOrder(elements.size());
     std::iota(eOrder.begin(), eOrder.end(), 0);
-    std::stable_sort(eOrder.begin(), eOrder.end(), [&](size_t a, size_t b) {
-        return elements[a].zOrder < elements[b].zOrder;
-    });
+    std::stable_sort(eOrder.begin(), eOrder.end(),
+                     [&](size_t a, size_t b) { return elements[a].zOrder < elements[b].zOrder; });
 
     bool isOut = state == GraphicState::AnimatingOut;
 

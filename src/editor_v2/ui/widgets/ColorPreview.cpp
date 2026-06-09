@@ -1,14 +1,16 @@
 #include "ColorPreview.h"
-#include <QPainter>
 #include <QMouseEvent>
+#include <QPainter>
 
-ColorPreview::ColorPreview(QWidget* parent)
-    : QWidget(parent)
+ColorPreview::ColorPreview(QWidget* parent) : QWidget(parent)
 {
     setMinimumSize(40, 20);
 }
 
-QColor ColorPreview::color() const { return m_color; }
+QColor ColorPreview::color() const
+{
+    return m_color;
+}
 
 void ColorPreview::setColor(const QColor& c)
 {

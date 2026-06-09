@@ -1,6 +1,6 @@
 #pragma once
-#include <QLineEdit>
 #include <QColor>
+#include <QLineEdit>
 
 class ColorLineEdit : public QLineEdit {
     Q_OBJECT
@@ -13,6 +13,7 @@ signals:
     void colorChanged(const QColor&);
 private slots:
     void onEditingFinished();
+
 private:
     static QColor parse(const QString& text);
     QColor m_color;

@@ -1,6 +1,6 @@
 #pragma once
-#include <QWidget>
 #include <QColor>
+#include <QWidget>
 
 class ColorPreview : public QWidget {
     Q_OBJECT
@@ -11,9 +11,11 @@ public:
     void setClickable(bool clickable);
 signals:
     void clicked();
+
 protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+
 private:
     QColor m_color{Qt::red};
     bool m_clickable{false};

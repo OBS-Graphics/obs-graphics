@@ -18,18 +18,18 @@
 #include "engine/json.hpp"
 #include "engine/scene.h"
 
-#include "model/SceneDocument.h"
 #include "model/EditorScene.h"
+#include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
 
 #include "SelectionHandles.h"
 
-static constexpr int    kArrowMergeTag = 9999;
+static constexpr int kArrowMergeTag = 9999;
 
 static Rectangle globalBounds(const Element& el)
 {
     auto pos = el.GetGlobalPosition();
-    return { pos.x, pos.y, el.bounds.width, el.bounds.height };
+    return {pos.x, pos.y, el.bounds.width, el.bounds.height};
 }
 static constexpr double kZoomMin = 0.05;
 static constexpr double kZoomMax = 30.0;
@@ -37,12 +37,8 @@ static constexpr double kZoomStep = 1.12;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-CanvasWidget::CanvasWidget(SceneDocument* doc,
-                           EditorScene*   editorState,
-                           QWidget*       parent)
-    : QWidget(parent)
-    , m_doc(doc)
-    , m_editorState(editorState)
+CanvasWidget::CanvasWidget(SceneDocument* doc, EditorScene* editorState, QWidget* parent)
+    : QWidget(parent), m_doc(doc), m_editorState(editorState)
 {
     setAutoFillBackground(false);
     setAttribute(Qt::WA_OpaquePaintEvent, true);
@@ -50,10 +46,8 @@ CanvasWidget::CanvasWidget(SceneDocument* doc,
 
     setupCairo();
 
-    connect(m_doc,        &SceneDocument::documentChanged,
-            this,         &CanvasWidget::onDocumentChanged);
-    connect(m_editorState, &EditorScene::selectionChanged,
-            this,          &CanvasWidget::onSelectionChanged);
+    connect(m_doc, &SceneDocument::documentChanged, this, &CanvasWidget::onDocumentChanged);
+    connect(m_editorState, &EditorScene::selectionChanged, this, &CanvasWidget::onSelectionChanged);
 
     renderStaticScene();
 }
@@ -68,8 +62,14 @@ CanvasWidget::~CanvasWidget()
 
 // ── Scene dimension helpers ───────────────────────────────────────────────────
 
-int CanvasWidget::sceneW() const { return m_doc ? m_doc->scene().width  : 1920; }
-int CanvasWidget::sceneH() const { return m_doc ? m_doc->scene().height : 1080; }
+int CanvasWidget::sceneW() const
+{
+    return m_doc ? m_doc->scene().width : 1920;
+}
+int CanvasWidget::sceneH() const
+{
+    return m_doc ? m_doc->scene().height : 1080;
+}
 
 // ── Cairo setup/teardown ──────────────────────────────────────────────────────
 
@@ -77,17 +77,22 @@ void CanvasWidget::setupCairo()
 {
     const int w = sceneW(), h = sceneH();
     m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
-    m_cr      = cairo_create(m_surface);
-    m_image   = QImage(cairo_image_surface_get_data(m_surface),
-                       w, h,
-                       cairo_image_surface_get_stride(m_surface),
-                       QImage::Format_ARGB32_Premultiplied);
+    m_cr = cairo_create(m_surface);
+    m_image =
+        QImage(cairo_image_surface_get_data(m_surface), w, h,
+               cairo_image_surface_get_stride(m_surface), QImage::Format_ARGB32_Premultiplied);
 }
 
 void CanvasWidget::teardownCairo()
 {
-    if (m_cr)      { cairo_destroy(m_cr);          m_cr      = nullptr; }
-    if (m_surface) { cairo_surface_destroy(m_surface); m_surface = nullptr; }
+    if (m_cr) {
+        cairo_destroy(m_cr);
+        m_cr = nullptr;
+    }
+    if (m_surface) {
+        cairo_surface_destroy(m_surface);
+        m_surface = nullptr;
+    }
 }
 
 // ── Coordinate helpers ────────────────────────────────────────────────────────
@@ -97,9 +102,7 @@ QRectF CanvasWidget::letterboxRect() const
     const double wW = width(), wH = height();
     const double base = std::min(wW / sceneW(), wH / sceneH()) * m_zoom;
     const double dW = sceneW() * base, dH = sceneH() * base;
-    return { (wW - dW) / 2.0 + m_panOffset.x(),
-             (wH - dH) / 2.0 + m_panOffset.y(),
-             dW, dH };
+    return {(wW - dW) / 2.0 + m_panOffset.x(), (wH - dH) / 2.0 + m_panOffset.y(), dW, dH};
 }
 
 QPointF CanvasWidget::widgetToScene(QPointF pt) const
@@ -107,19 +110,16 @@ QPointF CanvasWidget::widgetToScene(QPointF pt) const
     const QRectF lb = letterboxRect();
     if (lb.width() <= 0.0 || lb.height() <= 0.0)
         return {};
-    return { (pt.x() - lb.left()) / lb.width()  * sceneW(),
-             (pt.y() - lb.top())  / lb.height() * sceneH() };
+    return {(pt.x() - lb.left()) / lb.width() * sceneW(),
+            (pt.y() - lb.top()) / lb.height() * sceneH()};
 }
 
 QRectF CanvasWidget::sceneToWidget(const Rectangle& r) const
 {
     const QRectF lb = letterboxRect();
-    const double sx = lb.width()  / sceneW();
+    const double sx = lb.width() / sceneW();
     const double sy = lb.height() / sceneH();
-    return { lb.left() + r.x      * sx,
-             lb.top()  + r.y      * sy,
-             r.width  * sx,
-             r.height * sy };
+    return {lb.left() + r.x * sx, lb.top() + r.y * sy, r.width * sx, r.height * sy};
 }
 
 // ── Zoom helpers ──────────────────────────────────────────────────────────────
@@ -128,8 +128,8 @@ void CanvasWidget::zoomToward(QPointF cursor, double factor)
 {
     const QRectF lb = letterboxRect();
     // Scene point under cursor stays fixed
-    const double sx = lb.width()  > 0 ? (cursor.x() - lb.left()) / lb.width()  * sceneW() : 0;
-    const double sy = lb.height() > 0 ? (cursor.y() - lb.top())  / lb.height() * sceneH() : 0;
+    const double sx = lb.width() > 0 ? (cursor.x() - lb.left()) / lb.width() * sceneW() : 0;
+    const double sy = lb.height() > 0 ? (cursor.y() - lb.top()) / lb.height() * sceneH() : 0;
 
     m_zoom = std::clamp(m_zoom * factor, kZoomMin, kZoomMax);
 
@@ -143,16 +143,30 @@ void CanvasWidget::zoomToward(QPointF cursor, double factor)
     update();
 }
 
-void CanvasWidget::zoomIn()      { zoomToward(rect().center(), 1.25); }
-void CanvasWidget::zoomOut()     { zoomToward(rect().center(), 1.0 / 1.25); }
-void CanvasWidget::fitToWindow() { m_zoom = 1.0; m_panOffset = {}; update(); }
+void CanvasWidget::zoomIn()
+{
+    zoomToward(rect().center(), 1.25);
+}
+void CanvasWidget::zoomOut()
+{
+    zoomToward(rect().center(), 1.0 / 1.25);
+}
+void CanvasWidget::fitToWindow()
+{
+    m_zoom = 1.0;
+    m_panOffset = {};
+    update();
+}
 
 // ── Snapping ──────────────────────────────────────────────────────────────────
 
 void CanvasWidget::setSnapping(bool on)
 {
     m_snappingEnabled = on;
-    if (!on) { m_snapLinesX.clear(); m_snapLinesY.clear(); }
+    if (!on) {
+        m_snapLinesX.clear();
+        m_snapLinesY.clear();
+    }
 }
 
 void CanvasWidget::appendGuideCandidates(QList<double>& candX, QList<double>& candY) const
@@ -180,14 +194,15 @@ Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
     const double threshold = 8.0 * sceneW() / letterboxRect().width();
 
     // Candidate snap lines — all in global scene space
-    QList<double> candX = { 0.0, sceneW() / 2.0, double(sceneW()) };
-    QList<double> candY = { 0.0, sceneH() / 2.0, double(sceneH()) };
+    QList<double> candX = {0.0, sceneW() / 2.0, double(sceneW())};
+    QList<double> candY = {0.0, sceneH() / 2.0, double(sceneH())};
     appendGuideCandidates(candX, candY);
 
     const Scene& scene = m_doc->scene();
     for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
         for (int eei = 0; eei < (int)scene.graphics[ggi].elements.size(); ++eei) {
-            if (ggi == gi && eei == ei) continue;
+            if (ggi == gi && eei == ei)
+                continue;
             const Rectangle ob = globalBounds(scene.graphics[ggi].elements[eei]);
             candX << ob.x << ob.x + ob.width / 2.0 << ob.x + ob.width;
             candY << ob.y << ob.y + ob.height / 2.0 << ob.y + ob.height;
@@ -196,8 +211,8 @@ Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
 
     // Convert b (local) to global for anchor computation
     double parentOffsetX = 0.0, parentOffsetY = 0.0;
-    if (gi >= 0 && gi < (int)scene.graphics.size() &&
-        ei >= 0 && ei < (int)scene.graphics[gi].elements.size()) {
+    if (gi >= 0 && gi < (int)scene.graphics.size() && ei >= 0 &&
+        ei < (int)scene.graphics[gi].elements.size()) {
         const Element& el = scene.graphics[gi].elements[ei];
         if (el.parent) {
             Point pg = el.parent->GetGlobalPosition();
@@ -209,21 +224,21 @@ Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
     gb.x += parentOffsetX;
     gb.y += parentOffsetY;
 
-    const double anchX[3] = { gb.x, gb.x + gb.width / 2.0, gb.x + gb.width };
-    const double anchY[3] = { gb.y, gb.y + gb.height / 2.0, gb.y + gb.height };
+    const double anchX[3] = {gb.x, gb.x + gb.width / 2.0, gb.x + gb.width};
+    const double anchY[3] = {gb.y, gb.y + gb.height / 2.0, gb.y + gb.height};
 
-    auto bestSnap = [&](const double anchors[], const QList<double>& cands,
-                        double& outDelta, double& outLine) -> bool {
+    auto bestSnap = [&](const double anchors[], const QList<double>& cands, double& outDelta,
+                        double& outLine) -> bool {
         double best = threshold;
         bool found = false;
-        for (double a : { anchors[0], anchors[1], anchors[2] }) {
+        for (double a : {anchors[0], anchors[1], anchors[2]}) {
             for (double c : cands) {
                 double d = std::abs(a - c);
                 if (d < best) {
-                    best     = d;
+                    best = d;
                     outDelta = c - a;
-                    outLine  = c;
-                    found    = true;
+                    outLine = c;
+                    found = true;
                 }
             }
         }
@@ -248,11 +263,13 @@ Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
 Rectangle CanvasWidget::graphicSceneBounds(int gi) const
 {
     const Scene& scene = m_doc->scene();
-    if (gi < 0 || gi >= (int)scene.graphics.size()) return {};
+    if (gi < 0 || gi >= (int)scene.graphics.size())
+        return {};
     const Graphic& g = scene.graphics[gi];
-    if (g.elements.empty()) return {};
+    if (g.elements.empty())
+        return {};
 
-    double minX =  1e9, minY =  1e9;
+    double minX = 1e9, minY = 1e9;
     double maxX = -1e9, maxY = -1e9;
     for (const auto& el : g.elements) {
         const Rectangle gb = globalBounds(el);
@@ -261,7 +278,7 @@ Rectangle CanvasWidget::graphicSceneBounds(int gi) const
         maxX = std::max(maxX, gb.x + gb.width);
         maxY = std::max(maxY, gb.y + gb.height);
     }
-    return { minX, minY, maxX - minX, maxY - minY };
+    return {minX, minY, maxX - minX, maxY - minY};
 }
 
 // Snap a single edge (for resize handles)
@@ -270,7 +287,10 @@ static double snapEdge(double edge, const QList<double>& cands, double threshold
     double best = threshold, result = edge;
     for (double c : cands) {
         double d = std::abs(edge - c);
-        if (d < best) { best = d; result = c; }
+        if (d < best) {
+            best = d;
+            result = c;
+        }
     }
     return result;
 }
@@ -283,7 +303,8 @@ SelectionId CanvasWidget::hitTest(QPointF scenePt) const
 
     std::vector<int> gOrder;
     gOrder.reserve(scene.graphics.size());
-    for (int gi = 0; gi < (int)scene.graphics.size(); ++gi) gOrder.push_back(gi);
+    for (int gi = 0; gi < (int)scene.graphics.size(); ++gi)
+        gOrder.push_back(gi);
     std::stable_sort(gOrder.begin(), gOrder.end(), [&](int a, int b) {
         return scene.graphics[a].zOrder > scene.graphics[b].zOrder;
     });
@@ -292,16 +313,16 @@ SelectionId CanvasWidget::hitTest(QPointF scenePt) const
         const Graphic& g = scene.graphics[gi];
         std::vector<int> eOrder;
         eOrder.reserve(g.elements.size());
-        for (int ei = 0; ei < (int)g.elements.size(); ++ei) eOrder.push_back(ei);
-        std::stable_sort(eOrder.begin(), eOrder.end(), [&](int a, int b) {
-            return g.elements[a].zOrder > g.elements[b].zOrder;
-        });
+        for (int ei = 0; ei < (int)g.elements.size(); ++ei)
+            eOrder.push_back(ei);
+        std::stable_sort(eOrder.begin(), eOrder.end(),
+                         [&](int a, int b) { return g.elements[a].zOrder > g.elements[b].zOrder; });
 
         for (int ei : eOrder) {
             const Rectangle gb = globalBounds(g.elements[ei]);
-            if (scenePt.x() >= gb.x && scenePt.x() <= gb.x + gb.width &&
-                scenePt.y() >= gb.y && scenePt.y() <= gb.y + gb.height)
-                return { SelectionId::Level::Element, gi, ei };
+            if (scenePt.x() >= gb.x && scenePt.x() <= gb.x + gb.width && scenePt.y() >= gb.y &&
+                scenePt.y() <= gb.y + gb.height)
+                return {SelectionId::Level::Element, gi, ei};
         }
     }
     return {};
@@ -310,19 +331,24 @@ SelectionId CanvasWidget::hitTest(QPointF scenePt) const
 int CanvasWidget::hitHandle(QPointF widgetPt) const
 {
     const SelectionId sel = m_editorState->selection();
-    if (sel.level != SelectionId::Level::Element) return -1;
+    if (sel.level != SelectionId::Level::Element)
+        return -1;
     const Scene& scene = m_doc->scene();
-    if (sel.graphicIndex < 0 || sel.graphicIndex >= (int)scene.graphics.size()) return -1;
+    if (sel.graphicIndex < 0 || sel.graphicIndex >= (int)scene.graphics.size())
+        return -1;
     const Graphic& g = scene.graphics[sel.graphicIndex];
-    if (sel.elementIndex < 0 || sel.elementIndex >= (int)g.elements.size()) return -1;
-    return SelectionHandles::hitTest(widgetPt, sceneToWidget(globalBounds(g.elements[sel.elementIndex])));
+    if (sel.elementIndex < 0 || sel.elementIndex >= (int)g.elements.size())
+        return -1;
+    return SelectionHandles::hitTest(widgetPt,
+                                     sceneToWidget(globalBounds(g.elements[sel.elementIndex])));
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
 void CanvasWidget::renderStaticScene()
 {
-    if (!m_cr || !m_surface) return;
+    if (!m_cr || !m_surface)
+        return;
 
     cairo_save(m_cr);
     cairo_set_operator(m_cr, CAIRO_OPERATOR_CLEAR);
@@ -346,7 +372,8 @@ void CanvasWidget::renderStaticScene()
 
 void CanvasWidget::renderPreviewScene()
 {
-    if (!m_cr || !m_surface || !m_previewScene) return;
+    if (!m_cr || !m_surface || !m_previewScene)
+        return;
 
     cairo_save(m_cr);
     cairo_set_operator(m_cr, CAIRO_OPERATOR_CLEAR);
@@ -360,7 +387,11 @@ void CanvasWidget::renderPreviewScene()
 
 // ── Overlay helpers ───────────────────────────────────────────────────────────
 
-void CanvasWidget::setGuides(GuideFlags flags) { m_guideFlags = flags; update(); }
+void CanvasWidget::setGuides(GuideFlags flags)
+{
+    m_guideFlags = flags;
+    update();
+}
 
 void CanvasWidget::drawCheckerboard(QPainter& p, const QRectF& lb)
 {
@@ -369,10 +400,10 @@ void CanvasWidget::drawCheckerboard(QPainter& p, const QRectF& lb)
     if (checker.isNull()) {
         checker = QPixmap(sz * 2, sz * 2);
         QPainter cp(&checker);
-        cp.fillRect(0,  0,  sz, sz, QColor(72, 72, 72));
+        cp.fillRect(0, 0, sz, sz, QColor(72, 72, 72));
         cp.fillRect(sz, sz, sz, sz, QColor(72, 72, 72));
-        cp.fillRect(sz, 0,  sz, sz, QColor(56, 56, 56));
-        cp.fillRect(0,  sz, sz, sz, QColor(56, 56, 56));
+        cp.fillRect(sz, 0, sz, sz, QColor(56, 56, 56));
+        cp.fillRect(0, sz, sz, sz, QColor(56, 56, 56));
     }
     p.save();
     p.setClipRect(lb);
@@ -382,24 +413,25 @@ void CanvasWidget::drawCheckerboard(QPainter& p, const QRectF& lb)
 
 void CanvasWidget::drawGuides(QPainter& p, const QRectF& lb)
 {
-    if (m_guideFlags == GuideNone) return;
+    if (m_guideFlags == GuideNone)
+        return;
     p.save();
     p.setClipRect(lb);
 
     if (m_guideFlags & GuideRuleOfThirds) {
         p.setPen(QPen(QColor(255, 255, 255, 55), 1.0));
         for (int i = 1; i <= 2; ++i) {
-            double x = lb.left() + lb.width()  * i / 3.0;
-            double y = lb.top()  + lb.height() * i / 3.0;
-            p.drawLine(QPointF(x, lb.top()),   QPointF(x, lb.bottom()));
-            p.drawLine(QPointF(lb.left(), y),  QPointF(lb.right(), y));
+            double x = lb.left() + lb.width() * i / 3.0;
+            double y = lb.top() + lb.height() * i / 3.0;
+            p.drawLine(QPointF(x, lb.top()), QPointF(x, lb.bottom()));
+            p.drawLine(QPointF(lb.left(), y), QPointF(lb.right(), y));
         }
     }
     if (m_guideFlags & GuideCenterLines) {
         p.setPen(QPen(QColor(255, 255, 255, 38), 1.0, Qt::DashLine));
         double cx = lb.center().x(), cy = lb.center().y();
-        p.drawLine(QPointF(cx, lb.top()),   QPointF(cx, lb.bottom()));
-        p.drawLine(QPointF(lb.left(), cy),  QPointF(lb.right(), cy));
+        p.drawLine(QPointF(cx, lb.top()), QPointF(cx, lb.bottom()));
+        p.drawLine(QPointF(lb.left(), cy), QPointF(lb.right(), cy));
     }
     if (m_guideFlags & GuideTitleSafe) {
         double mx = lb.width() * 0.05, my = lb.height() * 0.05;
@@ -416,7 +448,8 @@ void CanvasWidget::drawGuides(QPainter& p, const QRectF& lb)
 
 void CanvasWidget::drawSnapLines(QPainter& p, const QRectF& lb)
 {
-    if (m_snapLinesX.isEmpty() && m_snapLinesY.isEmpty()) return;
+    if (m_snapLinesX.isEmpty() && m_snapLinesY.isEmpty())
+        return;
     p.save();
     p.setClipRect(lb);
     p.setPen(QPen(QColor(0, 150, 255, 210), 1.0));
@@ -446,10 +479,10 @@ void CanvasWidget::paintEvent(QPaintEvent*)
 
     // Subtle scene border
     p.setPen(QPen(QColor(0, 0, 0, 120), 1));
-    p.drawLine(lb.topLeft(),    lb.topRight());
-    p.drawLine(lb.topLeft(),    lb.bottomLeft());
+    p.drawLine(lb.topLeft(), lb.topRight());
+    p.drawLine(lb.topLeft(), lb.bottomLeft());
     p.setPen(QPen(QColor(100, 100, 100, 140), 1));
-    p.drawLine(lb.topRight(),   lb.bottomRight());
+    p.drawLine(lb.topRight(), lb.bottomRight());
     p.drawLine(lb.bottomLeft(), lb.bottomRight());
 
     drawGuides(p, lb);
@@ -465,10 +498,9 @@ void CanvasWidget::paintEvent(QPaintEvent*)
             if (sel.graphicIndex >= 0 && sel.graphicIndex < (int)scene.graphics.size()) {
                 const Graphic& g = scene.graphics[sel.graphicIndex];
                 if (sel.elementIndex >= 0 && sel.elementIndex < (int)g.elements.size())
-                    SelectionHandles::draw(p,
-                        sceneToWidget(globalBounds(g.elements[sel.elementIndex])),
-                        m_dragging ? m_dragHandle : -1,
-                        palette().highlight().color());
+                    SelectionHandles::draw(
+                        p, sceneToWidget(globalBounds(g.elements[sel.elementIndex])),
+                        m_dragging ? m_dragHandle : -1, palette().highlight().color());
             }
         } else if (sel.level == SelectionId::Level::Graphic) {
             const Scene& scene = m_doc->scene();
@@ -488,7 +520,10 @@ void CanvasWidget::paintEvent(QPaintEvent*)
     }
 }
 
-void CanvasWidget::resizeEvent(QResizeEvent*) { update(); }
+void CanvasWidget::resizeEvent(QResizeEvent*)
+{
+    update();
+}
 
 // ── Slots ─────────────────────────────────────────────────────────────────────
 
@@ -497,21 +532,26 @@ void CanvasWidget::onDocumentChanged()
     // Recreate Cairo surface if scene dimensions changed
     if (m_surface) {
         int w = sceneW(), h = sceneH();
-        if (cairo_image_surface_get_width(m_surface)  != w ||
+        if (cairo_image_surface_get_width(m_surface) != w ||
             cairo_image_surface_get_height(m_surface) != h) {
             m_image = QImage{};
             teardownCairo();
             setupCairo();
         }
     }
-    if (!m_previewScene) renderStaticScene();
+    if (!m_previewScene)
+        renderStaticScene();
 }
 
-void CanvasWidget::onSelectionChanged(SelectionId) { update(); }
+void CanvasWidget::onSelectionChanged(SelectionId)
+{
+    update();
+}
 
 void CanvasWidget::onAnimTick()
 {
-    if (!m_previewScene) return;
+    if (!m_previewScene)
+        return;
     const float delta = static_cast<float>(m_elapsedTimer.restart()) / 1000.0f;
     m_previewScene->Tick(delta);
     renderPreviewScene();
@@ -526,8 +566,10 @@ void CanvasWidget::startAnimationPreview(int graphicIndex, bool playIn)
     m_previewScene = std::make_unique<Scene>(Scene::LoadString(j.dump()));
 
     if (graphicIndex >= 0 && graphicIndex < (int)m_previewScene->graphics.size()) {
-        if (playIn) m_previewScene->graphics[graphicIndex].TriggerIn();
-        else        m_previewScene->graphics[graphicIndex].TriggerOut();
+        if (playIn)
+            m_previewScene->graphics[graphicIndex].TriggerIn();
+        else
+            m_previewScene->graphics[graphicIndex].TriggerOut();
     }
 
     m_elapsedTimer.start();
@@ -554,8 +596,7 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
 {
     const SelectionId sel = m_editorState->selection();
     if (m_previewScene ||
-        (sel.level != SelectionId::Level::Element &&
-         sel.level != SelectionId::Level::Graphic)) {
+        (sel.level != SelectionId::Level::Element && sel.level != SelectionId::Level::Graphic)) {
         QWidget::keyPressEvent(event);
         return;
     }
@@ -563,10 +604,18 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
     double dx = 0, dy = 0;
     const double step = (event->modifiers() & Qt::ShiftModifier) ? 10.0 : 1.0;
     switch (event->key()) {
-    case Qt::Key_Left:  dx = -step; break;
-    case Qt::Key_Right: dx = +step; break;
-    case Qt::Key_Up:    dy = -step; break;
-    case Qt::Key_Down:  dy = +step; break;
+    case Qt::Key_Left:
+        dx = -step;
+        break;
+    case Qt::Key_Right:
+        dx = +step;
+        break;
+    case Qt::Key_Up:
+        dy = -step;
+        break;
+    case Qt::Key_Down:
+        dy = +step;
+        break;
     default:
         QWidget::keyPressEvent(event);
         return;
@@ -574,7 +623,8 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
 
     const Scene& scene = m_doc->scene();
     const int gi = sel.graphicIndex;
-    if (gi < 0 || gi >= (int)scene.graphics.size()) return;
+    if (gi < 0 || gi >= (int)scene.graphics.size())
+        return;
 
     if (sel.level == SelectionId::Level::Graphic) {
         const Graphic& g = scene.graphics[gi];
@@ -585,22 +635,21 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
             b.x += dx;
             b.y += dy;
             m_doc->undoStack()->push(new SetElementFieldCmd<Rectangle>(
-                m_doc, gid, el.id, b,
-                [](Element& e) -> Rectangle& { return e.bounds; }, "nudge"));
+                m_doc, gid, el.id, b, [](Element& e) -> Rectangle& { return e.bounds; }, "nudge"));
         }
         m_doc->undoStack()->endMacro();
     } else {
         const int ei = sel.elementIndex;
-        if (ei < 0 || ei >= (int)scene.graphics[gi].elements.size()) return;
+        if (ei < 0 || ei >= (int)scene.graphics[gi].elements.size())
+            return;
         Rectangle b = scene.graphics[gi].elements[ei].bounds;
         b.x += dx;
         b.y += dy;
         const std::string gid = scene.graphics[gi].id;
         const std::string eid = scene.graphics[gi].elements[ei].id;
         m_doc->undoStack()->push(new SetElementFieldCmd<Rectangle>(
-            m_doc, gid, eid, b,
-            [](Element& e) -> Rectangle& { return e.bounds; },
-            "nudge", kArrowMergeTag));
+            m_doc, gid, eid, b, [](Element& e) -> Rectangle& { return e.bounds; }, "nudge",
+            kArrowMergeTag));
     }
 
     event->accept();
@@ -623,8 +672,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 {
     // Middle-button pan
     if (event->button() == Qt::MiddleButton) {
-        m_panning        = true;
-        m_panStart       = event->position();
+        m_panning = true;
+        m_panStart = event->position();
         m_panStartOffset = m_panOffset;
         setCursor(Qt::ClosedHandCursor);
         event->accept();
@@ -644,14 +693,14 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
         const SelectionId sel = m_editorState->selection();
         const Rectangle& bounds =
             m_doc->scene().graphics[sel.graphicIndex].elements[sel.elementIndex].bounds;
-        m_dragMode        = DragMode::Resize;
-        m_dragHandle      = handle;
+        m_dragMode = DragMode::Resize;
+        m_dragHandle = handle;
         m_dragStartWidget = wpos;
-        m_dragStartScene  = widgetToScene(wpos);
-        m_dragOrigBounds  = bounds;
-        m_dragGi          = sel.graphicIndex;
-        m_dragEi          = sel.elementIndex;
-        m_dragging        = true;
+        m_dragStartScene = widgetToScene(wpos);
+        m_dragOrigBounds = bounds;
+        m_dragGi = sel.graphicIndex;
+        m_dragEi = sel.elementIndex;
+        m_dragging = true;
         return;
     }
 
@@ -669,11 +718,11 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
                     m_graphicOrigBounds.clear();
                     for (const auto& el : g.elements)
                         m_graphicOrigBounds.push_back(el.bounds);
-                    m_dragMode       = DragMode::MoveGraphic;
-                    m_dragHandle     = -1;
+                    m_dragMode = DragMode::MoveGraphic;
+                    m_dragHandle = -1;
                     m_dragStartScene = sp;
-                    m_dragGi         = curSel.graphicIndex;
-                    m_dragging       = true;
+                    m_dragGi = curSel.graphicIndex;
+                    m_dragging = true;
                     return;
                 }
             }
@@ -687,16 +736,16 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
             const Graphic& g = scene.graphics[curSel.graphicIndex];
             if (curSel.elementIndex >= 0 && curSel.elementIndex < (int)g.elements.size()) {
                 const Rectangle gb = globalBounds(g.elements[curSel.elementIndex]);
-                if (sp.x() >= gb.x && sp.x() <= gb.x + gb.width &&
-                    sp.y() >= gb.y && sp.y() <= gb.y + gb.height) {
-                    m_dragMode        = DragMode::Move;
-                    m_dragHandle      = -1;
+                if (sp.x() >= gb.x && sp.x() <= gb.x + gb.width && sp.y() >= gb.y &&
+                    sp.y() <= gb.y + gb.height) {
+                    m_dragMode = DragMode::Move;
+                    m_dragHandle = -1;
                     m_dragStartWidget = wpos;
-                    m_dragStartScene  = sp;
-                    m_dragOrigBounds  = g.elements[curSel.elementIndex].bounds;
-                    m_dragGi          = curSel.graphicIndex;
-                    m_dragEi          = curSel.elementIndex;
-                    m_dragging        = true;
+                    m_dragStartScene = sp;
+                    m_dragOrigBounds = g.elements[curSel.elementIndex].bounds;
+                    m_dragGi = curSel.graphicIndex;
+                    m_dragEi = curSel.elementIndex;
+                    m_dragging = true;
                     return;
                 }
             }
@@ -711,14 +760,14 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
     if (hit.level == SelectionId::Level::Element) {
         const Rectangle& b =
             m_doc->scene().graphics[hit.graphicIndex].elements[hit.elementIndex].bounds;
-        m_dragMode        = DragMode::Move;
-        m_dragHandle      = -1;
+        m_dragMode = DragMode::Move;
+        m_dragHandle = -1;
         m_dragStartWidget = wpos;
-        m_dragStartScene  = scenePt;
-        m_dragOrigBounds  = b;
-        m_dragGi          = hit.graphicIndex;
-        m_dragEi          = hit.elementIndex;
-        m_dragging        = true;
+        m_dragStartScene = scenePt;
+        m_dragOrigBounds = b;
+        m_dragGi = hit.graphicIndex;
+        m_dragEi = hit.elementIndex;
+        m_dragging = true;
     }
 }
 
@@ -738,16 +787,17 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
         return;
     }
 
-    const QPointF wpos    = event->position();
+    const QPointF wpos = event->position();
     const QPointF scenePt = widgetToScene(wpos);
 
     if (m_dragMode == DragMode::MoveGraphic) {
-        const double dx  = scenePt.x() - m_dragStartScene.x();
-        const double dy  = scenePt.y() - m_dragStartScene.y();
-        const int    gi  = m_dragGi;
-        const auto   orig = m_graphicOrigBounds;
+        const double dx = scenePt.x() - m_dragStartScene.x();
+        const double dy = scenePt.y() - m_dragStartScene.y();
+        const int gi = m_dragGi;
+        const auto orig = m_graphicOrigBounds;
         m_doc->applyMutation([gi, dx, dy, orig](Scene& s) {
-            if (gi >= (int)s.graphics.size()) return;
+            if (gi >= (int)s.graphics.size())
+                return;
             Graphic& g = s.graphics[gi];
             for (int ei = 0; ei < (int)g.elements.size() && ei < (int)orig.size(); ++ei) {
                 g.elements[ei].bounds.x = orig[ei].x + dx;
@@ -758,44 +808,84 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
     }
 
     Rectangle newBounds = m_dragOrigBounds;
-    const double ox = m_dragOrigBounds.x,     oy = m_dragOrigBounds.y;
+    const double ox = m_dragOrigBounds.x, oy = m_dragOrigBounds.y;
     const double ow = m_dragOrigBounds.width, oh = m_dragOrigBounds.height;
 
     if (m_dragMode == DragMode::Move) {
         newBounds.x = ox + (scenePt.x() - m_dragStartScene.x());
         newBounds.y = oy + (scenePt.y() - m_dragStartScene.y());
 
-    } else {  // Resize
+    } else { // Resize
         const double dx = scenePt.x() - m_dragStartScene.x();
         const double dy = scenePt.y() - m_dragStartScene.y();
         switch (m_dragHandle) {
-        case 0: newBounds.x=ox+dx; newBounds.y=oy+dy; newBounds.width=std::max(1.0,ow-dx); newBounds.height=std::max(1.0,oh-dy); break;
-        case 1: newBounds.y=oy+dy; newBounds.height=std::max(1.0,oh-dy); break;
-        case 2: newBounds.y=oy+dy; newBounds.width=std::max(1.0,ow+dx); newBounds.height=std::max(1.0,oh-dy); break;
-        case 3: newBounds.x=ox+dx; newBounds.width=std::max(1.0,ow-dx); break;
-        case 4: newBounds.width=std::max(1.0,ow+dx); break;
-        case 5: newBounds.x=ox+dx; newBounds.width=std::max(1.0,ow-dx); newBounds.height=std::max(1.0,oh+dy); break;
-        case 6: newBounds.height=std::max(1.0,oh+dy); break;
-        case 7: newBounds.width=std::max(1.0,ow+dx); newBounds.height=std::max(1.0,oh+dy); break;
-        default: break;
+        case 0:
+            newBounds.x = ox + dx;
+            newBounds.y = oy + dy;
+            newBounds.width = std::max(1.0, ow - dx);
+            newBounds.height = std::max(1.0, oh - dy);
+            break;
+        case 1:
+            newBounds.y = oy + dy;
+            newBounds.height = std::max(1.0, oh - dy);
+            break;
+        case 2:
+            newBounds.y = oy + dy;
+            newBounds.width = std::max(1.0, ow + dx);
+            newBounds.height = std::max(1.0, oh - dy);
+            break;
+        case 3:
+            newBounds.x = ox + dx;
+            newBounds.width = std::max(1.0, ow - dx);
+            break;
+        case 4:
+            newBounds.width = std::max(1.0, ow + dx);
+            break;
+        case 5:
+            newBounds.x = ox + dx;
+            newBounds.width = std::max(1.0, ow - dx);
+            newBounds.height = std::max(1.0, oh + dy);
+            break;
+        case 6:
+            newBounds.height = std::max(1.0, oh + dy);
+            break;
+        case 7:
+            newBounds.width = std::max(1.0, ow + dx);
+            newBounds.height = std::max(1.0, oh + dy);
+            break;
+        default:
+            break;
         }
 
         // Shift: maintain original aspect ratio (corners only)
         if ((event->modifiers() & Qt::ShiftModifier) && oh > 0 &&
-            (m_dragHandle==0 || m_dragHandle==2 || m_dragHandle==5 || m_dragHandle==7)) {
+            (m_dragHandle == 0 || m_dragHandle == 2 || m_dragHandle == 5 || m_dragHandle == 7)) {
             // Use the dimension that changed proportionally more
-            const double wScale = newBounds.width  / ow;
+            const double wScale = newBounds.width / ow;
             const double hScale = newBounds.height / oh;
-            const double scale  = std::min(wScale, hScale);
-            newBounds.width  = std::max(1.0, ow * scale);
+            const double scale = std::min(wScale, hScale);
+            newBounds.width = std::max(1.0, ow * scale);
             newBounds.height = std::max(1.0, oh * scale);
             // Reposition so the opposite corner stays fixed
             switch (m_dragHandle) {
-            case 0: newBounds.x = ox + ow - newBounds.width; newBounds.y = oy + oh - newBounds.height; break;
-            case 2: newBounds.x = ox;                         newBounds.y = oy + oh - newBounds.height; break;
-            case 5: newBounds.x = ox + ow - newBounds.width; newBounds.y = oy;                          break;
-            case 7: newBounds.x = ox;                         newBounds.y = oy;                          break;
-            default: break;
+            case 0:
+                newBounds.x = ox + ow - newBounds.width;
+                newBounds.y = oy + oh - newBounds.height;
+                break;
+            case 2:
+                newBounds.x = ox;
+                newBounds.y = oy + oh - newBounds.height;
+                break;
+            case 5:
+                newBounds.x = ox + ow - newBounds.width;
+                newBounds.y = oy;
+                break;
+            case 7:
+                newBounds.x = ox;
+                newBounds.y = oy;
+                break;
+            default:
+                break;
             }
         }
 
@@ -803,10 +893,10 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
         if (event->modifiers() & Qt::ControlModifier) {
             const double cx = ox + ow / 2.0;
             const double cy = oy + oh / 2.0;
-            newBounds.width  = std::max(1.0, 2.0 * newBounds.width  - ow);
+            newBounds.width = std::max(1.0, 2.0 * newBounds.width - ow);
             newBounds.height = std::max(1.0, 2.0 * newBounds.height - oh);
-            newBounds.x      = cx - newBounds.width  / 2.0;
-            newBounds.y      = cy - newBounds.height / 2.0;
+            newBounds.x = cx - newBounds.width / 2.0;
+            newBounds.y = cy - newBounds.height / 2.0;
         }
     }
 
@@ -817,13 +907,14 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
         } else {
             // Snap only the edge(s) being dragged
             const double threshold = 8.0 * sceneW() / letterboxRect().width();
-            QList<double> candX = { 0.0, sceneW() / 2.0, double(sceneW()) };
-            QList<double> candY = { 0.0, sceneH() / 2.0, double(sceneH()) };
+            QList<double> candX = {0.0, sceneW() / 2.0, double(sceneW())};
+            QList<double> candY = {0.0, sceneH() / 2.0, double(sceneH())};
             appendGuideCandidates(candX, candY);
             const Scene& scene = m_doc->scene();
             for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
                 for (int eei = 0; eei < (int)scene.graphics[ggi].elements.size(); ++eei) {
-                    if (ggi == m_dragGi && eei == m_dragEi) continue;
+                    if (ggi == m_dragGi && eei == m_dragEi)
+                        continue;
                     const Rectangle& ob = scene.graphics[ggi].elements[eei].bounds;
                     candX << ob.x << ob.x + ob.width / 2.0 << ob.x + ob.width;
                     candY << ob.y << ob.y + ob.height / 2.0 << ob.y + ob.height;
@@ -835,23 +926,76 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
             auto snapX = [&](double& edge) {
                 double s = snapEdge(edge, candX, threshold);
-                if (s != edge) { m_snapLinesX << s; edge = s; }
+                if (s != edge) {
+                    m_snapLinesX << s;
+                    edge = s;
+                }
             };
             auto snapY = [&](double& edge) {
                 double s = snapEdge(edge, candY, threshold);
-                if (s != edge) { m_snapLinesY << s; edge = s; }
+                if (s != edge) {
+                    m_snapLinesY << s;
+                    edge = s;
+                }
             };
 
             switch (m_dragHandle) {
-            case 0: { snapX(newBounds.x); newBounds.width = ox+ow - newBounds.x; snapY(newBounds.y); newBounds.height = oy+oh - newBounds.y; break; }
-            case 1: { snapY(newBounds.y); newBounds.height = oy+oh - newBounds.y; break; }
-            case 2: { double r=newBounds.x+newBounds.width; snapX(r); newBounds.width=r-newBounds.x; snapY(newBounds.y); newBounds.height=oy+oh-newBounds.y; break; }
-            case 3: { snapX(newBounds.x); newBounds.width = ox+ow - newBounds.x; break; }
-            case 4: { double r=newBounds.x+newBounds.width; snapX(r); newBounds.width=r-newBounds.x; break; }
-            case 5: { snapX(newBounds.x); newBounds.width=ox+ow-newBounds.x; double b2=newBounds.y+newBounds.height; snapY(b2); newBounds.height=b2-newBounds.y; break; }
-            case 6: { double b2=newBounds.y+newBounds.height; snapY(b2); newBounds.height=b2-newBounds.y; break; }
-            case 7: { double r=newBounds.x+newBounds.width; snapX(r); newBounds.width=r-newBounds.x; double b2=newBounds.y+newBounds.height; snapY(b2); newBounds.height=b2-newBounds.y; break; }
-            default: break;
+            case 0: {
+                snapX(newBounds.x);
+                newBounds.width = ox + ow - newBounds.x;
+                snapY(newBounds.y);
+                newBounds.height = oy + oh - newBounds.y;
+                break;
+            }
+            case 1: {
+                snapY(newBounds.y);
+                newBounds.height = oy + oh - newBounds.y;
+                break;
+            }
+            case 2: {
+                double r = newBounds.x + newBounds.width;
+                snapX(r);
+                newBounds.width = r - newBounds.x;
+                snapY(newBounds.y);
+                newBounds.height = oy + oh - newBounds.y;
+                break;
+            }
+            case 3: {
+                snapX(newBounds.x);
+                newBounds.width = ox + ow - newBounds.x;
+                break;
+            }
+            case 4: {
+                double r = newBounds.x + newBounds.width;
+                snapX(r);
+                newBounds.width = r - newBounds.x;
+                break;
+            }
+            case 5: {
+                snapX(newBounds.x);
+                newBounds.width = ox + ow - newBounds.x;
+                double b2 = newBounds.y + newBounds.height;
+                snapY(b2);
+                newBounds.height = b2 - newBounds.y;
+                break;
+            }
+            case 6: {
+                double b2 = newBounds.y + newBounds.height;
+                snapY(b2);
+                newBounds.height = b2 - newBounds.y;
+                break;
+            }
+            case 7: {
+                double r = newBounds.x + newBounds.width;
+                snapX(r);
+                newBounds.width = r - newBounds.x;
+                double b2 = newBounds.y + newBounds.height;
+                snapY(b2);
+                newBounds.height = b2 - newBounds.y;
+                break;
+            }
+            default:
+                break;
             }
         }
     } else {
@@ -895,12 +1039,17 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
             const Graphic& g = scene.graphics[gi];
             std::vector<Rectangle> finalBounds;
             finalBounds.reserve(g.elements.size());
-            for (const auto& el : g.elements) finalBounds.push_back(el.bounds);
+            for (const auto& el : g.elements)
+                finalBounds.push_back(el.bounds);
 
             bool moved = false;
-            for (int ei = 0; ei < (int)finalBounds.size() && ei < (int)m_graphicOrigBounds.size(); ++ei) {
+            for (int ei = 0; ei < (int)finalBounds.size() && ei < (int)m_graphicOrigBounds.size();
+                 ++ei) {
                 if (finalBounds[ei].x != m_graphicOrigBounds[ei].x ||
-                    finalBounds[ei].y != m_graphicOrigBounds[ei].y) { moved = true; break; }
+                    finalBounds[ei].y != m_graphicOrigBounds[ei].y) {
+                    moved = true;
+                    break;
+                }
             }
 
             if (moved) {
@@ -912,40 +1061,46 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
                 });
                 const std::string gid = g.id;
                 m_doc->undoStack()->beginMacro("Move Graphic");
-                for (int ei = 0; ei < (int)g.elements.size() && ei < (int)finalBounds.size(); ++ei) {
+                for (int ei = 0; ei < (int)g.elements.size() && ei < (int)finalBounds.size();
+                     ++ei) {
                     const std::string eid = g.elements[ei].id;
                     const Rectangle fb = finalBounds[ei];
                     m_doc->undoStack()->push(new SetElementFieldCmd<Rectangle>(
-                        m_doc, gid, eid, fb,
-                        [](Element& e) -> Rectangle& { return e.bounds; }, "bounds"));
+                        m_doc, gid, eid, fb, [](Element& e) -> Rectangle& { return e.bounds; },
+                        "bounds"));
                 }
                 m_doc->undoStack()->endMacro();
             }
         }
         m_dragMode = DragMode::None;
-        m_dragGi   = -1;
+        m_dragGi = -1;
         m_graphicOrigBounds.clear();
         return;
     }
 
     const Scene& scene = m_doc->scene();
-    if (m_dragGi < 0 || m_dragGi >= (int)scene.graphics.size()) { m_dragMode = DragMode::None; return; }
+    if (m_dragGi < 0 || m_dragGi >= (int)scene.graphics.size()) {
+        m_dragMode = DragMode::None;
+        return;
+    }
     const Graphic& g = scene.graphics[m_dragGi];
-    if (m_dragEi < 0 || m_dragEi >= (int)g.elements.size())     { m_dragMode = DragMode::None; return; }
+    if (m_dragEi < 0 || m_dragEi >= (int)g.elements.size()) {
+        m_dragMode = DragMode::None;
+        return;
+    }
 
     const Rectangle finalBounds = g.elements[m_dragEi].bounds;
 
-    if (finalBounds.x     != m_dragOrigBounds.x     ||
-        finalBounds.y     != m_dragOrigBounds.y     ||
+    if (finalBounds.x != m_dragOrigBounds.x || finalBounds.y != m_dragOrigBounds.y ||
         finalBounds.width != m_dragOrigBounds.width ||
-        finalBounds.height!= m_dragOrigBounds.height) {
+        finalBounds.height != m_dragOrigBounds.height) {
 
         const int gi = m_dragGi, ei = m_dragEi;
         const std::string gid = scene.graphics[gi].id;
         const std::string eid = scene.graphics[gi].elements[ei].id;
         auto* cmd = new SetElementFieldCmd<Rectangle>(
-            m_doc, gid, eid, finalBounds,
-            [](Element& e) -> Rectangle& { return e.bounds; }, "bounds");
+            m_doc, gid, eid, finalBounds, [](Element& e) -> Rectangle& { return e.bounds; },
+            "bounds");
 
         // Revert to original so cmd->redo() applies the final value cleanly
         m_doc->applyMutation([gi, ei, orig = m_dragOrigBounds](Scene& s) {
@@ -958,10 +1113,10 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
         m_doc->undoStack()->push(cmd);
     }
 
-    m_dragMode   = DragMode::None;
+    m_dragMode = DragMode::None;
     m_dragHandle = -1;
-    m_dragGi     = -1;
-    m_dragEi     = -1;
+    m_dragGi = -1;
+    m_dragEi = -1;
     updateCursorForPos(event->position());
 }
 
@@ -974,10 +1129,8 @@ void CanvasWidget::leaveEvent(QEvent* event)
 void CanvasWidget::updateCursorForPos(QPointF wpos)
 {
     static const Qt::CursorShape kHandleCursors[8] = {
-        Qt::SizeFDiagCursor, Qt::SizeVerCursor,  Qt::SizeBDiagCursor,
-        Qt::SizeHorCursor,   Qt::SizeHorCursor,
-        Qt::SizeBDiagCursor, Qt::SizeVerCursor,  Qt::SizeFDiagCursor
-    };
+        Qt::SizeFDiagCursor, Qt::SizeVerCursor,   Qt::SizeBDiagCursor, Qt::SizeHorCursor,
+        Qt::SizeHorCursor,   Qt::SizeBDiagCursor, Qt::SizeVerCursor,   Qt::SizeFDiagCursor};
 
     const int handle = hitHandle(wpos);
     if (handle >= 0) {
@@ -993,8 +1146,8 @@ void CanvasWidget::updateCursorForPos(QPointF wpos)
             const Graphic& g = scene.graphics[sel.graphicIndex];
             if (sel.elementIndex >= 0 && sel.elementIndex < (int)g.elements.size()) {
                 const Rectangle gb = globalBounds(g.elements[sel.elementIndex]);
-                if (sp.x() >= gb.x && sp.x() <= gb.x + gb.width &&
-                    sp.y() >= gb.y && sp.y() <= gb.y + gb.height) {
+                if (sp.x() >= gb.x && sp.x() <= gb.x + gb.width && sp.y() >= gb.y &&
+                    sp.y() <= gb.y + gb.height) {
                     setCursor(Qt::SizeAllCursor);
                     return;
                 }
