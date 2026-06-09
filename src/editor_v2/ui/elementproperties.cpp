@@ -1,11 +1,13 @@
 #include "elementproperties.h"
 #include "animationeditor.h"
+#include "paddingeditor.h"
 #include "transformeditor.h"
 #include "model/SceneDocument.h"
 #include "model/UndoCommands.h"
 #include "engine/scene.h"
 #include "engine/graphic.h"
 #include "engine/element.h"
+#include <QCheckBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
@@ -85,6 +87,15 @@ ElementProperties::ElementProperties(SceneDocument* doc, QWidget *parent)
     animateOutLayout->addWidget(animateOut);
     innerLayout->addWidget(animateOutBox);
 
+    // Fit to Children
+    m_fitChildrenBox = makeGroup("Fit to Children");
+    auto *fitLayout = new QVBoxLayout(m_fitChildrenBox);
+    m_fitChildrenCheck = new QCheckBox("Enabled");
+    m_paddingEditor = new PaddingEditor;
+    fitLayout->addWidget(m_fitChildrenCheck);
+    fitLayout->addWidget(m_paddingEditor);
+    innerLayout->addWidget(m_fitChildrenBox);
+
     setEnabled(false);
 
     // Connections
@@ -108,6 +119,11 @@ ElementProperties::ElementProperties(SceneDocument* doc, QWidget *parent)
             this, &ElementProperties::onMaskChanged);
     connect(parentComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ElementProperties::onParentChanged);
+
+    connect(m_fitChildrenCheck, &QCheckBox::toggled,
+            this, &ElementProperties::onFitToChildrenToggled);
+    connect(m_paddingEditor, &PaddingEditor::paddingChanged,
+            this, &ElementProperties::onChildrenPaddingChanged);
 
     connect(m_doc, &SceneDocument::documentChanged,
             this, &ElementProperties::onDocumentChanged);
@@ -161,6 +177,18 @@ void ElementProperties::onDocumentChanged()
     animateOut->load(el->outAnimation);
     populateRefCombos();
 
+    // Fit to Children — show only when this element is used as parent
+    bool hasChildren = false;
+    for (const auto& other : g->elements)
+        if (other.parent == el) { hasChildren = true; break; }
+    m_fitChildrenBox->setVisible(hasChildren);
+    m_fitChildrenCheck->setChecked(el->fitToChildren);
+    m_paddingEditor->setEnabled(el->fitToChildren);
+    m_paddingEditor->setValues(
+        el->childrenPadding[0], el->childrenPadding[1],
+        el->childrenPadding[2], el->childrenPadding[3]
+    );
+
     m_updating = false;
 }
 
@@ -206,6 +234,8 @@ void ElementProperties::onIdEditingFinished()
         [](Element& e) -> std::string& { return e.id; },
         "id"
     ));
+    m_elementId = newId;
+    emit elementIdChanged(m_graphicId, m_elementId);
 }
 
 void ElementProperties::onZOrderChanged(int value)
@@ -344,4 +374,23 @@ void ElementProperties::onParentChanged(int)
             e.bounds.y = newY;
         });
     } catch (const std::runtime_error&) {}
+}
+
+void ElementProperties::onFitToChildrenToggled(bool checked)
+{
+    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    m_paddingEditor->setEnabled(checked);
+    m_doc->undoStack()->push(new SetElementFieldCmd<bool>(
+        m_doc, m_graphicId, m_elementId, checked,
+        [](Element& e) -> bool& { return e.fitToChildren; },
+        "fitToChildren"
+    ));
+}
+
+void ElementProperties::onChildrenPaddingChanged(float top, float right, float bottom, float left)
+{
+    if (m_updating || m_graphicId.empty() || m_elementId.empty()) return;
+    m_doc->undoStack()->push(new SetChildrenPaddingCmd(
+        m_doc, m_graphicId, m_elementId, top, right, bottom, left
+    ));
 }

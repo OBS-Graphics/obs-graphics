@@ -2,12 +2,15 @@
 
 #include "model/EditorScene.h"
 #include <QMainWindow>
+#include <QTabWidget>
 
 class SceneDocument;
 class EditorScene;
 class ElementProperties;
+class FontProperties;
 class StyleProperties;
 class SceneProperties;
+class GraphicProperties;
 class CanvasWidget;
 class QAction;
 class QCloseEvent;
@@ -42,6 +45,13 @@ private:
     ElementProperties* m_elementProperties;
     StyleProperties*   m_styleProperties;
     SceneProperties*   m_sceneProperties;
+    FontProperties*    m_fontProperties{nullptr};
+    GraphicProperties* m_graphicProperties{nullptr};
+    QTabWidget*        m_propTabs{nullptr};
+    int                m_elemTabIndex{-1};
+    int                m_styleTabIndex{-1};
+    int                m_fontTabIndex{-1};
+    int                m_graphicTabIndex{-1};
 
     QAction* m_undoAction{nullptr};
     QAction* m_redoAction{nullptr};

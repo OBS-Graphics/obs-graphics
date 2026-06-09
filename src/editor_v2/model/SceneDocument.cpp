@@ -56,12 +56,22 @@ static std::string fontWeightToString(FontWeight w)
     }
 }
 
-static std::string alignmentToString(Alignment a)
+static std::string alignmentHToString(HorizontalAlignment a)
 {
     switch (a) {
-    case Alignment::Center: return "center";
-    case Alignment::Far:    return "far";
-    default:                return "near";
+        case HorizontalAlignment::Justify: return "justify";
+        case HorizontalAlignment::Center: return "center";
+        case HorizontalAlignment::Right: return "right";
+        default: return "left";
+    }
+}
+
+static std::string alignmentVToString(VerticalAlignment a)
+{
+    switch (a) {
+        case VerticalAlignment::Bottom: return "bottom";
+        case VerticalAlignment::Middle: return "middle";
+        default: return "top";
     }
 }
 
@@ -81,6 +91,16 @@ static std::string wrapModeToString(WrapMode w)
     case WrapMode::Char:     return "char";
     case WrapMode::WordChar: return "word_char";
     default:                 return "word";
+    }
+}
+
+static std::string textTransformToString(TextTransform t)
+{
+    switch (t) {
+    case TextTransform::Capitalize: return "capitalize";
+    case TextTransform::Uppercase:  return "uppercase";
+    case TextTransform::Lowercase:  return "lowercase";
+    default:                        return "none";
     }
 }
 
@@ -172,18 +192,29 @@ static json elementToJson(const Element& el)
     if (el.mask)   j["mask"]   = el.mask->id;
     if (el.parent) j["parent"] = el.parent->id;
 
+    if (el.fitToChildren) {
+        j["fit_to_children"]  = true;
+        j["children_padding"] = json::array({
+            el.childrenPadding[0], el.childrenPadding[1],
+            el.childrenPadding[2], el.childrenPadding[3]
+        });
+    }
+
     // Text-specific fields (harmless to emit for rectangles too)
     if (el.type == ElementType::Text) {
         j["text"]         = el.text;
         j["font_family"]  = el.font.family;
         j["font_size"]    = el.font.size;
-        j["font_italic"]  = el.font.isItalic;
-        j["font_weight"]  = fontWeightToString(el.font.weight);
-        j["auto_scale"]   = el.autoScale;
-        j["text_align_x"] = alignmentToString(el.textAlignX);
-        j["text_align_y"] = alignmentToString(el.textAlignY);
-        j["ellipsize"]    = ellipsizeToString(el.ellipsize);
-        j["wrap"]         = wrapModeToString(el.wrapMode);
+        j["font_italic"]        = el.font.isItalic;
+        j["font_underline"]     = el.font.isUnderline;
+        j["font_strikethrough"] = el.font.isStrikethrough;
+        j["font_weight"]        = fontWeightToString(el.font.weight);
+        j["auto_scale"]         = el.autoScale;
+        j["text_align_x"]       = alignmentHToString(el.textAlignX);
+        j["text_align_y"]       = alignmentVToString(el.textAlignY);
+        j["ellipsize"]          = ellipsizeToString(el.ellipsize);
+        j["wrap"]               = wrapModeToString(el.wrapMode);
+        j["text_transform"]     = textTransformToString(el.transform);
     }
 
     return j;
@@ -333,10 +364,50 @@ void SceneDocument::reset()
     emit documentChanged();
 }
 
+static void applyFitToChildrenPass(Scene& scene)
+{
+    for (auto& g : scene.graphics) {
+        for (auto& el : g.elements) {
+            if (!el.fitToChildren) continue;
+            std::vector<Element*> children;
+            for (auto& other : g.elements)
+                if (other.parent == &el) children.push_back(&other);
+            if (children.empty()) continue;
+
+            double minX = children[0]->bounds.x, minY = children[0]->bounds.y;
+            double maxX = minX + children[0]->bounds.width;
+            double maxY = minY + children[0]->bounds.height;
+            for (auto* c : children) {
+                minX = std::min(minX, c->bounds.x);
+                minY = std::min(minY, c->bounds.y);
+                maxX = std::max(maxX, c->bounds.x + c->bounds.width);
+                maxY = std::max(maxY, c->bounds.y + c->bounds.height);
+            }
+
+            const float pT = el.childrenPadding[0], pR = el.childrenPadding[1];
+            const float pB = el.childrenPadding[2], pL = el.childrenPadding[3];
+
+            const double dx = minX - pL;
+            const double dy = minY - pT;
+
+            el.bounds.x      += dx;
+            el.bounds.y      += dy;
+            el.bounds.width   = maxX - minX + pL + pR;
+            el.bounds.height  = maxY - minY + pT + pB;
+
+            for (auto* c : children) {
+                c->bounds.x -= dx;
+                c->bounds.y -= dy;
+            }
+        }
+    }
+}
+
 void SceneDocument::applyMutation(std::function<void(Scene&)> fn)
 {
     fn(m_scene);
     resolveElementPointers();
+    applyFitToChildrenPass(m_scene);
     setModified(true);
     emit documentChanged();
 }
@@ -381,6 +452,15 @@ void SceneDocument::resolveElementPointers()
             if (!parentId.empty())
                 el.parent = findElementById(g, parentId);
         }
+    }
+}
+
+void SceneDocument::renameGraphicRef(const std::string& oldId, const std::string& newId)
+{
+    auto it = m_elementRefs.find(oldId);
+    if (it != m_elementRefs.end()) {
+        m_elementRefs[newId] = std::move(it->second);
+        m_elementRefs.erase(it);
     }
 }
 

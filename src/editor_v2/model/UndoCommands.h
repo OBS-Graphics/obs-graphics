@@ -236,6 +236,27 @@ private:
     AnimationDef& animRef(Element& el) const;
 };
 
+// ── SetChildrenPaddingCmd ─────────────────────────────────────────────────────
+
+class SetChildrenPaddingCmd : public QUndoCommand {
+public:
+    SetChildrenPaddingCmd(SceneDocument*  doc,
+                          std::string      gi,
+                          std::string      ei,
+                          float            top, float right, float bottom, float left,
+                          QUndoCommand*   parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    SceneDocument* m_doc;
+    std::string    m_gi;
+    std::string    m_ei;
+    float          m_before[4];
+    float          m_after[4];
+};
+
 // ── SetCornerRadiusCmd ────────────────────────────────────────────────────────
 
 class SetCornerRadiusCmd : public QUndoCommand {
@@ -255,6 +276,27 @@ private:
     std::string    m_ei;
     float          m_before[4];
     float          m_after[4];
+};
+
+// ── RenameGraphicCmd ──────────────────────────────────────────────────────────
+// Renames a graphic's ID string and keeps m_elementRefs in sync.
+
+class RenameGraphicCmd : public QUndoCommand {
+public:
+    RenameGraphicCmd(SceneDocument* doc,
+                     std::string     before,
+                     std::string     after,
+                     QUndoCommand*  parent = nullptr);
+
+    void undo() override;
+    void redo() override;
+
+private:
+    SceneDocument* m_doc;
+    std::string    m_before;
+    std::string    m_after;
+
+    void applyRename(const std::string& from, const std::string& to);
 };
 
 // ── Structural: Add / Remove Graphic ─────────────────────────────────────────

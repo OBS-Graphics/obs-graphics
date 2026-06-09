@@ -53,10 +53,19 @@ static FontWeight ParseFontWeight(const std::string& s) {
     return FontWeight::Normal;
 }
 
-static Alignment ParseAlignment(const std::string& s) {
-    if (s == "center")          return Alignment::Center;
-    if (s == "far"  || s == "right" || s == "bottom") return Alignment::Far;
-    return Alignment::Near;
+static HorizontalAlignment ParseHAlignment(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s == "center") return HorizontalAlignment::Center;
+    if (s == "far"  || s == "right" || s == "end") return HorizontalAlignment::Right;
+    if (s == "justify") return HorizontalAlignment::Justify;
+    return HorizontalAlignment::Left;
+}
+
+static VerticalAlignment ParseVAlignment(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    if (s == "bottom" || s == "end" || s == "down") return VerticalAlignment::Bottom;
+    if (s == "center"  || s == "middle") return VerticalAlignment::Middle;
+    return VerticalAlignment::Top;
 }
 
 static Ellipsize ParseEllipsize(const std::string& s) {
@@ -70,6 +79,13 @@ static WrapMode ParseWrapMode(const std::string& s) {
     if (s == "char")      return WrapMode::Char;
     if (s == "word_char") return WrapMode::WordChar;
     return WrapMode::Word;
+}
+
+static TextTransform ParseTextTransform(const std::string& s) {
+    if (s == "capitalize") return TextTransform::Capitalize;
+    if (s == "uppercase")  return TextTransform::Uppercase;
+    if (s == "lowercase")  return TextTransform::Lowercase;
+    return TextTransform::None;
 }
 
 static Paint ParsePaint(const json& v) {
@@ -137,16 +153,26 @@ static Element ParseElement(const json& j) {
     el.text        = j.value("text", "");
     el.font.family = j.value("font_family", "Sans");
     el.font.size   = j.value("font_size", 36.0f);
-    el.font.isItalic = j.value("font_italic", false);
-    el.font.weight = ParseFontWeight(j.value("font_weight", "normal"));
+    el.font.isItalic        = j.value("font_italic",        false);
+    el.font.isUnderline     = j.value("font_underline",     false);
+    el.font.isStrikethrough = j.value("font_strikethrough", false);
+    el.font.weight          = ParseFontWeight(j.value("font_weight", "normal"));
     el.autoScale   = j.value("auto_scale", false);
-    el.textAlignX  = ParseAlignment(j.value("text_align_x", "near"));
-    el.textAlignY  = ParseAlignment(j.value("text_align_y", "near"));
+    el.textAlignX  = ParseHAlignment(j.value("text_align_x", "left"));
+    el.textAlignY  = ParseVAlignment(j.value("text_align_y", "top"));
     el.ellipsize   = ParseEllipsize(j.value("ellipsize", "none"));
     el.wrapMode    = ParseWrapMode(j.value("wrap", "word"));
+    el.transform   = ParseTextTransform(j.value("text_transform", "none"));
 
     if (j.contains("anim_in"))  el.inAnimation  = ParseAnimationDef(j["anim_in"]);
     if (j.contains("anim_out")) el.outAnimation = ParseAnimationDef(j["anim_out"]);
+
+    el.fitToChildren = j.value("fit_to_children", false);
+    if (j.contains("children_padding") && j["children_padding"].is_array() &&
+        j["children_padding"].size() >= 4) {
+        for (int i = 0; i < 4; ++i)
+            el.childrenPadding[i] = j["children_padding"][i].get<float>();
+    }
 
     return el;
 }

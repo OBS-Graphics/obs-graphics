@@ -120,6 +120,6 @@ void CornerRadiusEditor::paintEvent(QPaintEvent *)
     auto pMax = m_br->geometry().center();
     QRect rect(pMin, pMax);
 
-    p.setPen(QPen(QColor::fromString("#aaa"), 1.0));
+    p.setPen(QPen(QColor::fromString("#777"), 1.0));
     p.drawRect(rect);
 }

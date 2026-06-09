@@ -27,10 +27,17 @@ enum class FontWeight {
     Book       = PANGO_WEIGHT_BOOK
 };
 
-enum class Alignment {
-    Near = 0,
+enum class HorizontalAlignment {
+    Left = 0,
     Center,
-    Far
+    Justify,
+    Right
+};
+
+enum class VerticalAlignment {
+    Top = 0,
+    Middle,
+    Bottom
 };
 
 enum class Ellipsize {
@@ -44,6 +51,13 @@ enum class WrapMode {
     Word     = PANGO_WRAP_WORD,
     Char     = PANGO_WRAP_CHAR,
     WordChar = PANGO_WRAP_WORD_CHAR
+};
+
+enum class TextTransform {
+    None = 0,
+    Capitalize,
+    Uppercase,
+    Lowercase
 };
 
 struct Element {
@@ -66,19 +80,25 @@ struct Element {
     Element* mask{nullptr};
     Element* parent{nullptr};
 
+    bool  fitToChildren{false};
+    float childrenPadding[4]{0.0f, 0.0f, 0.0f, 0.0f}; // top, right, bottom, left
+
     struct {
         std::string family;
         float size{36.0f};
         FontWeight weight{FontWeight::Normal};
         bool isItalic{false};
+        bool isUnderline{false};
+        bool isStrikethrough{false};
     } font{};
 
     std::string text;
     bool autoScale{false};
-    Alignment textAlignX{Alignment::Near};
-    Alignment textAlignY{Alignment::Near};
+    HorizontalAlignment textAlignX{HorizontalAlignment::Left};
+    VerticalAlignment textAlignY{VerticalAlignment::Top};
     Ellipsize ellipsize{Ellipsize::None};
     WrapMode wrapMode{WrapMode::Word};
+    TextTransform transform{TextTransform::None};
 
     void Render(cairo_t* ctx, const AnimatedTransform& xf,
                 const AnimatedTransform* maskXf = nullptr) const;

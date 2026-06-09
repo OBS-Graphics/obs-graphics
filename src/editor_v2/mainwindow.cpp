@@ -3,6 +3,8 @@
 #include "model/EditorScene.h"
 #include "model/UndoCommands.h"
 #include "ui/elementproperties.h"
+#include "ui/fontproperties.h"
+#include "ui/graphicproperties.h"
 #include "ui/styleproperties.h"
 #include "ui/sceneproperties.h"
 #include "ui/widgets/CanvasWidget.h"
@@ -48,31 +50,49 @@ MainWindow::MainWindow(QWidget *parent)
     propDock->setFeatures(QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetMovable);
     addDockWidget(Qt::RightDockWidgetArea, propDock);
 
-    auto* tabs = new QTabWidget;
-    propDock->setWidget(tabs);
+    m_propTabs = new QTabWidget;
+    propDock->setWidget(m_propTabs);
 
     m_elementProperties = new ElementProperties(m_doc);
     auto* scrollElem = new QScrollArea;
     scrollElem->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollElem->setWidgetResizable(true);
     scrollElem->setWidget(m_elementProperties);
-    tabs->addTab(scrollElem, "Element");
+    m_elemTabIndex = m_propTabs->addTab(scrollElem, "Element");
+    m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, false);
 
     m_styleProperties = new StyleProperties(m_doc);
     auto* scrollStyle = new QScrollArea;
     scrollStyle->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollStyle->setWidgetResizable(true);
     scrollStyle->setWidget(m_styleProperties);
-    tabs->addTab(scrollStyle, "Styling");
+    m_styleTabIndex = m_propTabs->addTab(scrollStyle, "Styling");
+    m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, false);
+
+    m_fontProperties = new FontProperties(m_doc);
+    auto* scrollFont = new QScrollArea;
+    scrollFont->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollFont->setWidgetResizable(true);
+    scrollFont->setWidget(m_fontProperties);
+    m_fontTabIndex = m_propTabs->addTab(scrollFont, "Font");
+    m_propTabs->tabBar()->setTabVisible(m_fontTabIndex, false);
+
+    m_graphicProperties = new GraphicProperties(m_doc);
+    auto* scrollGraphic = new QScrollArea;
+    scrollGraphic->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollGraphic->setWidgetResizable(true);
+    scrollGraphic->setWidget(m_graphicProperties);
+    m_graphicTabIndex = m_propTabs->addTab(scrollGraphic, "Graphic");
+    m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, false);
 
     m_sceneProperties = new SceneProperties(m_doc);
     auto* scrollScene = new QScrollArea;
     scrollScene->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollScene->setWidgetResizable(true);
     scrollScene->setWidget(m_sceneProperties);
-    tabs->addTab(scrollScene, "Scene");
+    m_propTabs->addTab(scrollScene, "Scene");
 
-    tabs->setCurrentIndex(0);
+    m_propTabs->setCurrentWidget(scrollScene);
 
     setupMenuBar();
     setupToolBar();
@@ -80,6 +100,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_editorScene, &EditorScene::selectionChanged,
             this, &MainWindow::onSelectionChanged);
+    connect(m_elementProperties, &ElementProperties::elementIdChanged,
+            [this](const std::string& gi, const std::string& ei) {
+                m_styleProperties->setSelection(gi, ei);
+                m_fontProperties->setSelection(gi, ei);
+            });
     connect(m_doc, &SceneDocument::modifiedChanged,
             this, &MainWindow::setWindowModified);
     connect(m_doc, &SceneDocument::filePathChanged,
@@ -398,10 +423,45 @@ void MainWindow::onSelectionChanged(SelectionId id)
         if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size()) return;
         const Graphic& g = s.graphics[id.graphicIndex];
         if (id.elementIndex < 0 || id.elementIndex >= (int)g.elements.size()) return;
-        m_elementProperties->setSelection(g.id, g.elements[id.elementIndex].id);
-        m_styleProperties->setSelection(g.id, g.elements[id.elementIndex].id);
+        const std::string gi = g.id;
+        const std::string ei = g.elements[id.elementIndex].id;
+        m_elementProperties->setSelection(gi, ei);
+        m_styleProperties->setSelection(gi, ei);
+        m_fontProperties->setSelection(gi, ei);
+
+        const bool isText = g.elements[id.elementIndex].type == ElementType::Text;
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    true);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   true);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    isText);
+        m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, false);
+        if (m_propTabs->currentIndex() == m_graphicTabIndex)
+            m_propTabs->tabBar()->setCurrentIndex(m_elemTabIndex);
+    } else if (id.level == SelectionId::Level::Graphic) {
+        const Scene& s = m_doc->scene();
+        if (id.graphicIndex < 0 || id.graphicIndex >= (int)s.graphics.size()) return;
+        const std::string gi = s.graphics[id.graphicIndex].id;
+        m_graphicProperties->setSelection(gi);
+        m_elementProperties->setSelection({}, {});
+        m_styleProperties->setSelection({}, {});
+        m_fontProperties->setSelection({}, {});
+
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   false);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, true);
+        if (m_propTabs->currentIndex() == m_elemTabIndex  ||
+            m_propTabs->currentIndex() == m_styleTabIndex ||
+            m_propTabs->currentIndex() == m_fontTabIndex)
+            m_propTabs->setCurrentIndex(m_graphicTabIndex);
     } else {
         m_elementProperties->setSelection({}, {});
         m_styleProperties->setSelection({}, {});
+        m_fontProperties->setSelection({}, {});
+
+        m_propTabs->tabBar()->setTabVisible(m_elemTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_styleTabIndex,   false);
+        m_propTabs->tabBar()->setTabVisible(m_fontTabIndex,    false);
+        m_propTabs->tabBar()->setTabVisible(m_graphicTabIndex, false);
     }
+    m_propTabs->tabBar()->updateGeometry();
 }

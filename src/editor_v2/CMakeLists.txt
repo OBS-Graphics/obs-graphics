@@ -41,6 +41,9 @@ set(PROJECT_SOURCES
         ui/widgets/ColorWheel.h     ui/widgets/ColorWheel.cpp
         ui/widgets/ColorPicker.h    ui/widgets/ColorPicker.cpp
         ui/cornerradiuseditor.h ui/cornerradiuseditor.cpp
+        ui/paddingeditor.h ui/paddingeditor.cpp
+        ui/fontproperties.h ui/fontproperties.cpp
+        ui/graphicproperties.h ui/graphicproperties.cpp
         icons.h icons.cpp
         ui/painteditor.h ui/painteditor.cpp
         ui/styleproperties.h ui/styleproperties.cpp

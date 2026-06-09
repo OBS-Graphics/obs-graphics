@@ -155,6 +155,23 @@ void CanvasWidget::setSnapping(bool on)
     if (!on) { m_snapLinesX.clear(); m_snapLinesY.clear(); }
 }
 
+void CanvasWidget::appendGuideCandidates(QList<double>& candX, QList<double>& candY) const
+{
+    const double W = sceneW(), H = sceneH();
+    if (m_guideFlags & GuideRuleOfThirds) {
+        candX << W / 3.0 << 2.0 * W / 3.0;
+        candY << H / 3.0 << 2.0 * H / 3.0;
+    }
+    if (m_guideFlags & GuideTitleSafe) {
+        candX << W * 0.05 << W * 0.95;
+        candY << H * 0.05 << H * 0.95;
+    }
+    if (m_guideFlags & GuideActionSafe) {
+        candX << W * 0.10 << W * 0.90;
+        candY << H * 0.10 << H * 0.90;
+    }
+}
+
 Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
 {
     m_snapLinesX.clear();
@@ -165,6 +182,7 @@ Rectangle CanvasWidget::applySnapping(Rectangle b, int gi, int ei)
     // Candidate snap lines — all in global scene space
     QList<double> candX = { 0.0, sceneW() / 2.0, double(sceneW()) };
     QList<double> candY = { 0.0, sceneH() / 2.0, double(sceneH()) };
+    appendGuideCandidates(candX, candY);
 
     const Scene& scene = m_doc->scene();
     for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
@@ -318,6 +336,8 @@ void CanvasWidget::renderStaticScene()
         g.state = GraphicState::Visible;
         g.timer = 1e9;
     }
+
+    cairo_set_antialias(m_cr, CAIRO_ANTIALIAS_BEST);
 
     s.Render(m_cr);
     cairo_surface_flush(m_surface);
@@ -712,6 +732,8 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
     }
 
     if (!m_dragging || m_previewScene) {
+        if (!m_previewScene)
+            updateCursorForPos(event->position());
         QWidget::mouseMoveEvent(event);
         return;
     }
@@ -797,6 +819,7 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
             const double threshold = 8.0 * sceneW() / letterboxRect().width();
             QList<double> candX = { 0.0, sceneW() / 2.0, double(sceneW()) };
             QList<double> candY = { 0.0, sceneH() / 2.0, double(sceneH()) };
+            appendGuideCandidates(candX, candY);
             const Scene& scene = m_doc->scene();
             for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
                 for (int eei = 0; eei < (int)scene.graphics[ggi].elements.size(); ++eei) {
@@ -939,4 +962,51 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
     m_dragHandle = -1;
     m_dragGi     = -1;
     m_dragEi     = -1;
+    updateCursorForPos(event->position());
+}
+
+void CanvasWidget::leaveEvent(QEvent* event)
+{
+    unsetCursor();
+    QWidget::leaveEvent(event);
+}
+
+void CanvasWidget::updateCursorForPos(QPointF wpos)
+{
+    static const Qt::CursorShape kHandleCursors[8] = {
+        Qt::SizeFDiagCursor, Qt::SizeVerCursor,  Qt::SizeBDiagCursor,
+        Qt::SizeHorCursor,   Qt::SizeHorCursor,
+        Qt::SizeBDiagCursor, Qt::SizeVerCursor,  Qt::SizeFDiagCursor
+    };
+
+    const int handle = hitHandle(wpos);
+    if (handle >= 0) {
+        setCursor(kHandleCursors[handle]);
+        return;
+    }
+
+    const SelectionId sel = m_editorState->selection();
+    if (sel.level == SelectionId::Level::Element) {
+        const QPointF sp = widgetToScene(wpos);
+        const Scene& scene = m_doc->scene();
+        if (sel.graphicIndex >= 0 && sel.graphicIndex < (int)scene.graphics.size()) {
+            const Graphic& g = scene.graphics[sel.graphicIndex];
+            if (sel.elementIndex >= 0 && sel.elementIndex < (int)g.elements.size()) {
+                const Rectangle gb = globalBounds(g.elements[sel.elementIndex]);
+                if (sp.x() >= gb.x && sp.x() <= gb.x + gb.width &&
+                    sp.y() >= gb.y && sp.y() <= gb.y + gb.height) {
+                    setCursor(Qt::SizeAllCursor);
+                    return;
+                }
+            }
+        }
+    } else if (sel.level == SelectionId::Level::Graphic) {
+        const QRectF gRect = sceneToWidget(graphicSceneBounds(sel.graphicIndex));
+        if (gRect.contains(wpos)) {
+            setCursor(Qt::SizeAllCursor);
+            return;
+        }
+    }
+
+    unsetCursor();
 }

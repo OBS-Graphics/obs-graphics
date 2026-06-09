@@ -69,6 +69,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void leaveEvent(QEvent* event) override;
 
 private slots:
     void onDocumentChanged();
@@ -105,6 +106,10 @@ private:
 
     // Snapping
     Rectangle applySnapping(Rectangle b, int gi, int ei);
+    void appendGuideCandidates(QList<double>& candX, QList<double>& candY) const;
+
+    // Cursor
+    void updateCursorForPos(QPointF widgetPos);
 
     // Graphic helpers
     Rectangle graphicSceneBounds(int gi) const;

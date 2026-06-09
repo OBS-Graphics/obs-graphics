@@ -1,6 +1,7 @@
 #include "element.h"
 
 #include <cmath>
+#include <algorithm>
 
 static void RoundRect(cairo_t* ctx, double x, double y, double w, double h,
                       const float r[4])
@@ -65,8 +66,36 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
         }
 
         case ElementType::Text: {
+            std::string textXf = text;
+            switch (transform) {
+                case TextTransform::Lowercase: std::transform(textXf.begin(), textXf.end(), textXf.begin(), ::tolower); break;
+                case TextTransform::Uppercase: std::transform(textXf.begin(), textXf.end(), textXf.begin(), ::toupper); break;
+                case TextTransform::Capitalize: {
+                    bool newWord = true;
+                    for (char& c : textXf) {
+                        c = ::tolower(c);
+                        if (::isspace(c)) {
+                            newWord = true;
+                        } else if (newWord) {
+                            c = ::toupper(c);
+                            newWord = false;
+                        }
+                    }
+                } break;
+                default: break;
+            }
+
+            PangoAttrList* attrs = pango_attr_list_new();
+            if (font.isUnderline) {
+                pango_attr_list_insert(attrs, pango_attr_underline_new(PANGO_UNDERLINE_SINGLE));
+            }
+            if (font.isStrikethrough) {
+                pango_attr_list_insert(attrs, pango_attr_strikethrough_new(TRUE));
+            }
+
             PangoLayout* layout = pango_cairo_create_layout(ctx);
-            pango_layout_set_text(layout, text.c_str(), -1);
+            pango_layout_set_text(layout, textXf.c_str(), -1);
+            pango_layout_set_attributes(layout, attrs);
 
             PangoFontDescription* fd = pango_font_description_new();
             if (!font.family.empty())
@@ -79,9 +108,10 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
             pango_layout_set_font_description(layout, fd);
 
             static constexpr PangoAlignment kAlignMap[] = {
-                PANGO_ALIGN_LEFT, PANGO_ALIGN_CENTER, PANGO_ALIGN_RIGHT
+                PANGO_ALIGN_LEFT, PANGO_ALIGN_CENTER, PANGO_ALIGN_LEFT, PANGO_ALIGN_RIGHT
             };
             pango_layout_set_alignment(layout, kAlignMap[(int)textAlignX]);
+            pango_layout_set_justify(layout, textAlignX == HorizontalAlignment::Justify);
 
             double ox = 0.0, oy = 0.0;
 
@@ -111,10 +141,10 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
                 PangoRectangle ink;
                 pango_layout_get_pixel_extents(layout, &ink, nullptr);
                 switch (textAlignY) {
-                    case Alignment::Near:
+                    case VerticalAlignment::Top:
                         oy = -ink.y;
                         break;
-                    case Alignment::Far:
+                    case VerticalAlignment::Bottom:
                         oy = bounds.height - ink.height - ink.y;
                         break;
                     default:
@@ -139,6 +169,7 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
                 cairo_stroke(ctx);
             }
 
+            pango_attr_list_unref(attrs);
             g_object_unref(layout);
             break;
         }
@@ -150,8 +181,15 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
 
 void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf,
                              const AnimatedTransform* maskXf) const {
-    RoundRect(ctx, 0, 0, bounds.width, bounds.height, cornerRadius);
-    cairo_clip(ctx);
+    const bool isWiping = xf.clipX > 0.0 || xf.clipY > 0.0
+                       || xf.clipW < 1.0 || xf.clipH < 1.0;
+    const bool hasRadius = cornerRadius[0] > 0 || cornerRadius[1] > 0
+                        || cornerRadius[2] > 0 || cornerRadius[3] > 0;
+
+    if (isWiping || hasRadius) {
+        RoundRect(ctx, 0, 0, bounds.width, bounds.height, cornerRadius);
+        cairo_clip(ctx);
+    }
 
     if (mask != nullptr) {
         Point maskGlobal = mask->GetGlobalPosition();
@@ -166,12 +204,14 @@ void Element::ApplyClipping(cairo_t *ctx, const AnimatedTransform &xf,
         cairo_clip(ctx);
     }
 
-    cairo_rectangle(ctx,
-        xf.clipX * bounds.width,
-        xf.clipY * bounds.height,
-        xf.clipW * bounds.width,
-        xf.clipH * bounds.height);
-    cairo_clip(ctx);
+    if (isWiping) {
+        cairo_rectangle(ctx,
+            xf.clipX * bounds.width,
+            xf.clipY * bounds.height,
+            xf.clipW * bounds.width,
+            xf.clipH * bounds.height);
+        cairo_clip(ctx);
+    }
 }
 
 Point Element::GetGlobalPosition() const

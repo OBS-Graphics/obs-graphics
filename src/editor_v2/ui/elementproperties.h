@@ -2,13 +2,16 @@
 #define ELEMENTPROPERTIES_H
 
 #include <string>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QWidget>
 
 class AnimationEditor;
+class PaddingEditor;
 class TransformEditor;
 class SceneDocument;
 
@@ -20,6 +23,9 @@ public:
     explicit ElementProperties(SceneDocument* doc, QWidget *parent = nullptr);
 
     void setSelection(const std::string& graphicId, const std::string& elementId);
+
+signals:
+    void elementIdChanged(const std::string& graphicId, const std::string& newElementId);
 
 private slots:
     void onDocumentChanged();
@@ -35,6 +41,8 @@ private slots:
     void onAnimOutChanged();
     void onMaskChanged(int index);
     void onParentChanged(int index);
+    void onFitToChildrenToggled(bool checked);
+    void onChildrenPaddingChanged(float top, float right, float bottom, float left);
 
 private:
     void populateRefCombos();
@@ -50,6 +58,10 @@ private:
     QComboBox *maskComboBox, *parentComboBox;
     TransformEditor *transformEditor;
     AnimationEditor *animateIn, *animateOut;
+
+    QGroupBox*    m_fitChildrenBox;
+    QCheckBox*    m_fitChildrenCheck;
+    PaddingEditor* m_paddingEditor;
 };
 
 #endif // ELEMENTPROPERTIES_H

@@ -45,6 +45,9 @@ public:
                        const std::string& maskId,
                        const std::string& parentId);
 
+    // Move all element refs from one graphic ID key to another (for rename).
+    void renameGraphicRef(const std::string& oldId, const std::string& newId);
+
     // All mutations go through here; fn may freely modify m_scene
     void applyMutation(std::function<void(Scene&)> fn);
 

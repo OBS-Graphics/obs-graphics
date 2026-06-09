@@ -187,6 +187,54 @@ void SetElementAnimCmd::redo()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SetChildrenPaddingCmd
+// ─────────────────────────────────────────────────────────────────────────────
+
+SetChildrenPaddingCmd::SetChildrenPaddingCmd(SceneDocument* doc,
+                                             std::string     gi,
+                                             std::string     ei,
+                                             float top, float right, float bottom, float left,
+                                             QUndoCommand*  parent)
+    : QUndoCommand(parent)
+    , m_doc(doc)
+    , m_gi(std::move(gi))
+    , m_ei(std::move(ei))
+{
+    setText("Set children padding");
+    m_after[0] = top; m_after[1] = right; m_after[2] = bottom; m_after[3] = left;
+
+    try {
+        const Element& el = m_doc->scene().GetById(m_gi).GetById(m_ei);
+        for (int i = 0; i < 4; ++i)
+            m_before[i] = el.childrenPadding[i];
+    } catch (const std::runtime_error&) {
+        for (int i = 0; i < 4; ++i) m_before[i] = 0.f;
+    }
+}
+
+void SetChildrenPaddingCmd::undo()
+{
+    m_doc->applyMutation([&](Scene& s) {
+        try {
+            Element& el = s.GetById(m_gi).GetById(m_ei);
+            for (int i = 0; i < 4; ++i)
+                el.childrenPadding[i] = m_before[i];
+        } catch (const std::runtime_error&) {}
+    });
+}
+
+void SetChildrenPaddingCmd::redo()
+{
+    m_doc->applyMutation([&](Scene& s) {
+        try {
+            Element& el = s.GetById(m_gi).GetById(m_ei);
+            for (int i = 0; i < 4; ++i)
+                el.childrenPadding[i] = m_after[i];
+        } catch (const std::runtime_error&) {}
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SetCornerRadiusCmd
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -233,6 +281,34 @@ void SetCornerRadiusCmd::redo()
         } catch (const std::runtime_error&) {}
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RenameGraphicCmd
+// ─────────────────────────────────────────────────────────────────────────────
+
+RenameGraphicCmd::RenameGraphicCmd(SceneDocument* doc,
+                                   std::string     before,
+                                   std::string     after,
+                                   QUndoCommand*  parent)
+    : QUndoCommand(parent)
+    , m_doc(doc)
+    , m_before(std::move(before))
+    , m_after(std::move(after))
+{
+    setText("Rename graphic");
+}
+
+void RenameGraphicCmd::applyRename(const std::string& from, const std::string& to)
+{
+    m_doc->applyMutation([&](Scene& s) {
+        try { s.GetById(from).id = to; }
+        catch (const std::runtime_error&) {}
+    });
+    m_doc->renameGraphicRef(from, to);
+}
+
+void RenameGraphicCmd::undo() { applyRename(m_after,  m_before); }
+void RenameGraphicCmd::redo() { applyRename(m_before, m_after);  }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AddGraphicCmd
@@ -311,6 +387,16 @@ void RemoveGraphicCmd::undo()
             }
         }
     });
+    // Restore mask/parent logical refs for all elements in the snapshot
+    if (m_snapshot.contains("elements")) {
+        for (const auto& ej : m_snapshot["elements"]) {
+            std::string eid      = ej.value("id",     "");
+            std::string maskId   = ej.value("mask",   "");
+            std::string parentId = ej.value("parent", "");
+            if (!eid.empty() && (!maskId.empty() || !parentId.empty()))
+                m_doc->setElementRef(m_gi, eid, maskId, parentId);
+        }
+    }
 }
 
 void RemoveGraphicCmd::redo()
@@ -417,6 +503,11 @@ void RemoveElementCmd::undo()
             }
         } catch (const std::runtime_error&) {}
     });
+    // Restore mask/parent logical refs that insertElementFromJson cleared
+    const std::string maskId   = m_snapshot.value("mask",   "");
+    const std::string parentId = m_snapshot.value("parent", "");
+    if (!maskId.empty() || !parentId.empty())
+        m_doc->setElementRef(m_gi, m_ei, maskId, parentId);
 }
 
 void RemoveElementCmd::redo()
