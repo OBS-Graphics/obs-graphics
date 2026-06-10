@@ -265,7 +265,6 @@ jobs:
       - name: Set Up Environment 🔧
         id: setup
         run: |
-          : Set Up Environment 🔧
           $BuildSpec = Get-Content buildspec.json | ConvertFrom-Json
           "pluginName=$($BuildSpec.name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "pluginVersion=$($BuildSpec.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append

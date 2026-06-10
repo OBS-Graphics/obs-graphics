@@ -17,6 +17,14 @@
                 "macos": "495687e63383d1a287684b6e2e9bfe246bb8f156fe265926afb1a325af1edd2a",
                 "windows-x64": "c8c642c1070dc31ce9a0f1e4cef5bb992f4bff4882255788b5da12129e85caa7"
             }
+        },
+        "qt6": {
+            "version": "2025-07-11",
+            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+            "label": "Pre-Built Qt6 obs-deps",
+            "hashes": {
+                "macos": "d3f5f04b6ea486e032530bdf0187cbda9a54e0a49621a4c8ba984c5023998867"
+            }
         }
     },
     "platformConfig": {
