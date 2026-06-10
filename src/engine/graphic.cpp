@@ -6,26 +6,30 @@
 
 void Graphic::TriggerIn(size_t recordIndex)
 {
-    if (dataSource) {
-        auto data = dataSource->GetData();
-        if (data.empty()) {
-            goto playout;
-        }
-
-        const auto& record = data[recordIndex % data.size()];
-        for (auto&& rec : record) {
-            try {
-                auto& el = GetById(rec.first);
-                el.text = rec.second;
-            } catch (const std::runtime_error&) {
-                // No element with this id; ignore
-            }
-        }
-    }
-
-playout:
+    dataRecordIndex = recordIndex;
+    UpdateData();
     state = GraphicState::AnimatingIn;
     timer = 0.0f;
+}
+
+// TODO: In the future, animate data transitions.
+void Graphic::UpdateData() {
+    if (!dataSource) return;
+
+    auto data = dataSource->GetData();
+    if (data.empty()) {
+        return;
+    }
+
+    const auto& record = data[dataRecordIndex % data.size()];
+    for (auto&& rec : record) {
+        try {
+            auto& el = GetById(rec.first);
+            el.text = rec.second;
+        } catch (const std::runtime_error&) {
+            // No element with this id; ignore
+        }
+    }
 }
 
 Element& Graphic::GetById(const std::string& id)
@@ -39,6 +43,19 @@ Element& Graphic::GetById(const std::string& id)
 
 void Graphic::Tick(float timeStep)
 {
+    // Update data timer
+    updateTimer += timeStep;
+
+    const double updateInterval = 0.2;
+    int prevSlot = static_cast<int>(prevUpdateTimer / updateInterval);
+    int currSlot = static_cast<int>(updateTimer / updateInterval);
+
+    if (prevSlot != currSlot) {
+        UpdateData();
+    }
+
+    prevUpdateTimer = updateTimer;
+
     if (state == GraphicState::Hidden || state == GraphicState::Visible) {
         return;
     }

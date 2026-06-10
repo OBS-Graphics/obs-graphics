@@ -14,6 +14,7 @@ struct Graphic {
     int zOrder{0};
 
     IDataSource* dataSource{nullptr};
+    size_t dataRecordIndex{0};
 
     void TriggerIn(size_t recordIndex = 0);
     void TriggerOut()
@@ -22,8 +23,13 @@ struct Graphic {
         timer = 0.0f;
     }
 
+    void UpdateData();
+
     Element& GetById(const std::string& id);
 
     void Tick(float timeStep);
     void Render(cairo_t* ctx) const;
+
+private:
+    double updateTimer{0.0}, prevUpdateTimer{0.0};
 };

@@ -5,7 +5,7 @@
 
 struct DataSourceEntry {
     std::string path;
-    std::string type; // "json" or "csv"
+    std::string type; // "json", "csv", or "lua"
 };
 
 struct AppConfig {

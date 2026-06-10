@@ -9,6 +9,7 @@
 #include <QStyle>
 
 #include <filesystem>
+#include "engine/script.h"
 
 GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configPath)
     : QWidget(parent), m_configPath(std::move(configPath))
@@ -156,16 +157,18 @@ void GraphicsDockWidget::onLoadDataSource(int graphicIndex)
 {
     QString path = QFileDialog::getOpenFileName(
         this, "Load Data Source", QString(),
-        "Data Files (*.json *.csv);;JSON Files (*.json);;CSV Files (*.csv)");
+        "Data Files (*.json *.csv *.lua);;JSON Files (*.json);;CSV Files (*.csv);;Lua Scripts (*.lua)");
     if (path.isEmpty())
         return;
 
     std::unique_ptr<IDataSource> ds;
     if (path.endsWith(".json", Qt::CaseInsensitive))
         ds = std::make_unique<JsonFileDataSource>(path.toStdString());
+    else if (path.endsWith(".lua", Qt::CaseInsensitive))
+        ds = std::make_unique<ScriptDataSource>(path.toStdString());
     else
         ds = std::make_unique<CsvFileDataSource>(path.toStdString());
-
+        
     {
         std::lock_guard<std::mutex> lock(g_scene_mutex);
         if (graphicIndex >= (int)g_active_scene.graphics.size())
@@ -246,7 +249,7 @@ void GraphicsDockWidget::saveConfig()
 
         if (row < (int)m_dataSources.size() && m_dataSources[row]) {
             std::string path = m_dataSources[row]->GetFilePath();
-            std::string type = path.ends_with(".csv") ? "csv" : "json";
+            std::string type = path.ends_with(".csv") ? "csv" : path.ends_with(".lua") ? "lua" : "json";
             cfg.dataSources[id] = {path, type};
         }
 
@@ -294,26 +297,32 @@ void GraphicsDockWidget::loadConfig()
         if (!std::filesystem::exists(dsIt->second.path))
             continue;
 
-        std::unique_ptr<IDataSource> ds;
-        if (dsIt->second.type == "csv")
-            ds = std::make_unique<CsvFileDataSource>(dsIt->second.path);
-        else
-            ds = std::make_unique<JsonFileDataSource>(dsIt->second.path);
+        try {
+            std::unique_ptr<IDataSource> ds;
+            if (dsIt->second.type == "csv")
+                ds = std::make_unique<CsvFileDataSource>(dsIt->second.path);
+            else if (dsIt->second.type == "lua")
+                ds = std::make_unique<ScriptDataSource>(dsIt->second.path);
+            else
+                ds = std::make_unique<JsonFileDataSource>(dsIt->second.path);
 
-        {
-            std::lock_guard<std::mutex> lock(g_scene_mutex);
-            if (row < (int)g_active_scene.graphics.size())
-                g_active_scene.graphics[row].dataSource = ds.get();
-        }
-        m_dataSources[row] = std::move(ds);
-        rebuildDataSourceCell(row, row);
-
-        auto recIt = cfg.selectedRecords.find(id);
-        if (recIt != cfg.selectedRecords.end()) {
-            if (auto* cell = m_table->cellWidget(row, 1)) {
-                if (auto* combo = cell->findChild<QComboBox*>())
-                    combo->setCurrentIndex(recIt->second);
+            {
+                std::lock_guard<std::mutex> lock(g_scene_mutex);
+                if (row < (int)g_active_scene.graphics.size())
+                    g_active_scene.graphics[row].dataSource = ds.get();
             }
+            m_dataSources[row] = std::move(ds);
+            rebuildDataSourceCell(row, row);
+
+            auto recIt = cfg.selectedRecords.find(id);
+            if (recIt != cfg.selectedRecords.end()) {
+                if (auto* cell = m_table->cellWidget(row, 1)) {
+                    if (auto* combo = cell->findChild<QComboBox*>())
+                        combo->setCurrentIndex(recIt->second);
+                }
+            }
+        } catch (...) {
+            continue;
         }
     }
 
