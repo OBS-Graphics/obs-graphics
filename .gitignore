@@ -6,6 +6,7 @@
 !/build-aux
 !/cmake
 !/data
+!/engine
 !/src
 !.clang-format
 !.editorconfig

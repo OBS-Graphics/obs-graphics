@@ -29,7 +29,7 @@ set_target_properties(
 
 find_package(PkgConfig REQUIRED)
 
-add_subdirectory(src/engine)
+add_subdirectory(engine)
 
 target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_20)
 
