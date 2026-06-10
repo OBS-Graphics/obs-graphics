@@ -70,6 +70,25 @@ function Build {
         '--config', $Configuration
     )
 
+    # Locate vcpkg — VCPKG_INSTALLATION_ROOT is set on GitHub Actions Windows runners;
+    # local developers can set VCPKG_ROOT instead.
+    $VcpkgRoot = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } `
+                 elseif ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } `
+                 else { $null }
+
+    if (-not $VcpkgRoot) {
+        throw "vcpkg is required to build on Windows (Cairo/Pango/Lua). " +
+              "Set VCPKG_INSTALLATION_ROOT or VCPKG_ROOT to your vcpkg root directory."
+    }
+
+    $VcpkgInstalled = "$VcpkgRoot\installed\x64-windows"
+    $env:PKG_CONFIG_PATH = "$VcpkgInstalled\lib\pkgconfig"
+    $CmakeArgs += @(
+        "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake"
+        '-DVCPKG_TARGET_TRIPLET=x64-windows'
+        "-DPKG_CONFIG_EXECUTABLE=$VcpkgInstalled\tools\pkgconf\pkgconf.exe"
+    )
+
     Log-Group "Configuring ${ProductName}..."
     Invoke-External cmake @CmakeArgs
 
