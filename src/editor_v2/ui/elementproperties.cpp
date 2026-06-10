@@ -1,5 +1,4 @@
 #include "elementproperties.h"
-#include "animationeditor.h"
 #include "engine/element.h"
 #include "engine/graphic.h"
 #include "engine/scene.h"
@@ -72,20 +71,6 @@ ElementProperties::ElementProperties(SceneDocument* doc, QWidget* parent)
     referencesForm->addRow("Parent", parentComboBox);
     innerLayout->addWidget(referencesBox);
 
-    // Animate In
-    auto* animateInBox = makeGroup("Animate In");
-    animateIn = new AnimationEditor;
-    auto* animateInLayout = new QVBoxLayout(animateInBox);
-    animateInLayout->addWidget(animateIn);
-    innerLayout->addWidget(animateInBox);
-
-    // Animate Out
-    auto* animateOutBox = makeGroup("Animate Out");
-    animateOut = new AnimationEditor;
-    auto* animateOutLayout = new QVBoxLayout(animateOutBox);
-    animateOutLayout->addWidget(animateOut);
-    innerLayout->addWidget(animateOutBox);
-
     // Fit to Children
     m_fitChildrenBox = makeGroup("Fit to Children");
     auto* fitLayout = new QVBoxLayout(m_fitChildrenBox);
@@ -109,11 +94,6 @@ ElementProperties::ElementProperties(SceneDocument* doc, QWidget* parent)
     connect(transformEditor, &TransformEditor::wChanged, this, &ElementProperties::onWChanged);
     connect(transformEditor, &TransformEditor::hChanged, this, &ElementProperties::onHChanged);
     connect(transformEditor, &TransformEditor::rotChanged, this, &ElementProperties::onRotChanged);
-
-    connect(animateIn, &AnimationEditor::animationChanged, this,
-            &ElementProperties::onAnimInChanged);
-    connect(animateOut, &AnimationEditor::animationChanged, this,
-            &ElementProperties::onAnimOutChanged);
 
     connect(maskComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &ElementProperties::onMaskChanged);
@@ -176,8 +156,6 @@ void ElementProperties::onDocumentChanged()
     zOrderSpinBox->setValue(el->zOrder);
     opacitySpinBox->setValue(static_cast<double>(el->opacity) * 100.0);
     transformEditor->load(el->bounds, el->rotation);
-    animateIn->load(el->inAnimation);
-    animateOut->load(el->outAnimation);
     populateRefCombos();
 
     // Fit to Children — show only when this element is used as parent
@@ -305,24 +283,6 @@ void ElementProperties::onRotChanged(double value)
     m_doc->undoStack()->push(new SetElementFieldCmd<float>(
         m_doc, m_graphicId, m_elementId, static_cast<float>(value),
         [](Element& e) -> float& { return e.rotation; }, "rotation", ElemMergeTag::Rotation));
-}
-
-void ElementProperties::onAnimInChanged()
-{
-    if (m_updating || m_graphicId.empty() || m_elementId.empty())
-        return;
-    m_doc->undoStack()->push(new SetElementAnimCmd(m_doc, m_graphicId, m_elementId,
-                                                   SetElementAnimCmd::Target::AnimIn,
-                                                   animateIn->getAnimationDef()));
-}
-
-void ElementProperties::onAnimOutChanged()
-{
-    if (m_updating || m_graphicId.empty() || m_elementId.empty())
-        return;
-    m_doc->undoStack()->push(new SetElementAnimCmd(m_doc, m_graphicId, m_elementId,
-                                                   SetElementAnimCmd::Target::AnimOut,
-                                                   animateOut->getAnimationDef()));
 }
 
 void ElementProperties::onMaskChanged(int)

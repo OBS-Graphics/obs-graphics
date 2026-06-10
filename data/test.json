@@ -5,15 +5,15 @@
                 {
                     "anim_in": {
                         "delay": 0.0,
-                        "duration": 0.5,
+                        "duration": 0.75,
                         "easing": "ease_in_out",
-                        "type": "wipe_right"
+                        "type": "slide_down"
                     },
                     "anim_out": {
-                        "delay": 0.0,
-                        "duration": 0.5,
+                        "delay": 0.10000000149011612,
+                        "duration": 0.4000000059604645,
                         "easing": "ease_in_out",
-                        "type": "wipe_left"
+                        "type": "slide_up"
                     },
                     "children_padding": [
                         30.0,
@@ -32,6 +32,15 @@
                                     1.0
                                 ],
                                 "offset": 0.0
+                            },
+                            {
+                                "color": [
+                                    0.08209353685379028,
+                                    0.11413748562335968,
+                                    0.32246890664100647,
+                                    1.0
+                                ],
+                                "offset": 0.2
                             },
                             {
                                 "color": [
@@ -71,6 +80,18 @@
                     "z_order": 0
                 },
                 {
+                    "anim_in": {
+                        "delay": 0.17000000178813934,
+                        "duration": 0.5,
+                        "easing": "ease_in_out",
+                        "type": "slide_right"
+                    },
+                    "anim_out": {
+                        "delay": 0.0,
+                        "duration": 0.5,
+                        "easing": "ease_in_out",
+                        "type": "slide_left"
+                    },
                     "auto_scale": true,
                     "corner_radius": 0.0,
                     "ellipsize": "none",
@@ -105,6 +126,18 @@
                     "z_order": 1
                 },
                 {
+                    "anim_in": {
+                        "delay": 0.17000000178813934,
+                        "duration": 0.5,
+                        "easing": "ease_in_out",
+                        "type": "slide_left"
+                    },
+                    "anim_out": {
+                        "delay": 0.0,
+                        "duration": 0.5,
+                        "easing": "ease_in_out",
+                        "type": "slide_right"
+                    },
                     "auto_scale": false,
                     "corner_radius": 0.0,
                     "ellipsize": "none",

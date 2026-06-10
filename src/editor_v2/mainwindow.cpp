@@ -11,6 +11,7 @@
 #include "ui/graphicproperties.h"
 #include "ui/sceneproperties.h"
 #include "ui/styleproperties.h"
+#include "ui/widgets/GraphicTimingEditor.h"
 #include "ui/widgets/CanvasWidget.h"
 #include "ui/widgets/SceneTreeView.h"
 
@@ -92,6 +93,50 @@ MainWindow::MainWindow(QWidget* parent)
     m_propTabs->addTab(scrollScene, "Scene");
 
     m_propTabs->setCurrentWidget(scrollScene);
+
+    // Give side docks ownership of the bottom corners so the timing dock
+    // sits only under the canvas, between the scene tree and properties panel.
+    setCorner(Qt::BottomLeftCorner,  Qt::LeftDockWidgetArea);
+    setCorner(Qt::BottomRightCorner, Qt::RightDockWidgetArea);
+
+    // Animation timing — bottom dock (canvas-width only)
+    auto* timingDock = new QDockWidget("Animation Timing", this);
+    timingDock->setFeatures(QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetMovable);
+    m_timingEditor = new GraphicTimingEditor(m_doc, timingDock);
+    timingDock->setWidget(m_timingEditor);
+    addDockWidget(Qt::BottomDockWidgetArea, timingDock);
+
+    connect(m_timingEditor, &GraphicTimingEditor::animationChanged,
+            [this](int elementIndex, bool isIn, AnimationType type, Easing easing, float delay, float duration) {
+        const Scene& s = m_doc->scene();
+        const SelectionId sel = m_editorScene->selection();
+        if (sel.graphicIndex < 0 || sel.graphicIndex >= (int)s.graphics.size())
+            return;
+        const Graphic& g = s.graphics[sel.graphicIndex];
+        if (elementIndex < 0 || elementIndex >= (int)g.elements.size())
+            return;
+        const std::string gi = g.id;
+        const std::string ei = g.elements[elementIndex].id;
+        AnimationDef def = isIn ? g.elements[elementIndex].inAnimation
+                                : g.elements[elementIndex].outAnimation;
+        def.type     = type;
+        def.easing   = easing;
+        def.delay    = delay;
+        def.duration = duration;
+        auto target = isIn ? SetElementAnimCmd::Target::AnimIn
+                           : SetElementAnimCmd::Target::AnimOut;
+        m_doc->undoStack()->push(new SetElementAnimCmd(m_doc, gi, ei, target, def));
+    });
+
+    connect(m_timingEditor, &GraphicTimingEditor::scrubTimeChanged,
+            [this](float t) {
+        const SelectionId sel = m_editorScene->selection();
+        if (sel.graphicIndex >= 0)
+            m_canvas->previewAtTime(sel.graphicIndex, m_timingEditor->isIn(), double(t));
+    });
+
+    connect(m_timingEditor, &GraphicTimingEditor::previewStopped,
+            m_canvas, &CanvasWidget::stopAnimationPreview);
 
     setupMenuBar();
     setupToolBar();
@@ -456,6 +501,8 @@ void MainWindow::onSelectionChanged(SelectionId id)
         m_styleProperties->setSelection(gi, ei);
         m_fontProperties->setSelection(gi, ei);
 
+        m_timingEditor->loadGraphic(id.graphicIndex);
+
         const bool isText = g.elements[id.elementIndex].type == ElementType::Text;
         m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, true);
         m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, true);
@@ -473,6 +520,8 @@ void MainWindow::onSelectionChanged(SelectionId id)
         m_styleProperties->setSelection({}, {});
         m_fontProperties->setSelection({}, {});
 
+        m_timingEditor->loadGraphic(id.graphicIndex);
+
         m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, false);
         m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, false);
         m_propTabs->tabBar()->setTabVisible(m_fontTabIndex, false);
@@ -485,6 +534,7 @@ void MainWindow::onSelectionChanged(SelectionId id)
         m_elementProperties->setSelection({}, {});
         m_styleProperties->setSelection({}, {});
         m_fontProperties->setSelection({}, {});
+        m_timingEditor->clear();
 
         m_propTabs->tabBar()->setTabVisible(m_elemTabIndex, false);
         m_propTabs->tabBar()->setTabVisible(m_styleTabIndex, false);

@@ -10,7 +10,6 @@
 #include <QWidget>
 #include <string>
 
-class AnimationEditor;
 class PaddingEditor;
 class TransformEditor;
 class SceneDocument;
@@ -36,8 +35,6 @@ private slots:
     void onWChanged(double value);
     void onHChanged(double value);
     void onRotChanged(double value);
-    void onAnimInChanged();
-    void onAnimOutChanged();
     void onMaskChanged(int index);
     void onParentChanged(int index);
     void onFitToChildrenToggled(bool checked);
@@ -56,7 +53,6 @@ private:
     QDoubleSpinBox* opacitySpinBox;
     QComboBox *maskComboBox, *parentComboBox;
     TransformEditor* transformEditor;
-    AnimationEditor *animateIn, *animateOut;
 
     QGroupBox* m_fitChildrenBox;
     QCheckBox* m_fitChildrenCheck;

@@ -12,6 +12,7 @@ class StyleProperties;
 class SceneProperties;
 class GraphicProperties;
 class CanvasWidget;
+class GraphicTimingEditor;
 class QAction;
 class QCloseEvent;
 
@@ -51,6 +52,8 @@ private:
     int m_styleTabIndex{-1};
     int m_fontTabIndex{-1};
     int m_graphicTabIndex{-1};
+
+    GraphicTimingEditor* m_timingEditor{nullptr};
 
     QAction* m_undoAction{nullptr};
     QAction* m_redoAction{nullptr};

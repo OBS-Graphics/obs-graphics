@@ -51,6 +51,9 @@ set(PROJECT_SOURCES
         ui/widgets/SceneTreeModel.h ui/widgets/SceneTreeModel.cpp
         ui/widgets/SceneTreeView.h ui/widgets/SceneTreeView.cpp
         ui/widgets/SelectionHandles.h ui/widgets/SelectionHandles.cpp
+        ui/widgets/AnimationTimingEditor.h ui/widgets/AnimationTimingEditor.cpp
+        ui/widgets/GraphicTimingEditor.h ui/widgets/GraphicTimingEditor.cpp
+        ui/widgets/ScrubRuler.h ui/widgets/ScrubRuler.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
