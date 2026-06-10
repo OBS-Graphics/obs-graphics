@@ -15,6 +15,30 @@ static Easing ParseEasing(const std::string& s)
         return Easing::EaseOut;
     if (s == "ease_in_out")
         return Easing::EaseInOut;
+    if (s == "ease_in_cubic")
+        return Easing::EaseInCubic;
+    if (s == "ease_out_cubic")
+        return Easing::EaseOutCubic;
+    if (s == "ease_in_out_cubic")
+        return Easing::EaseInOutCubic;
+    if (s == "ease_in_expo")
+        return Easing::EaseInExpo;
+    if (s == "ease_out_expo")
+        return Easing::EaseOutExpo;
+    if (s == "ease_in_out_expo")
+        return Easing::EaseInOutExpo;
+    if (s == "ease_in_back")
+        return Easing::EaseInBack;
+    if (s == "ease_out_back")
+        return Easing::EaseOutBack;
+    if (s == "ease_in_out_back")
+        return Easing::EaseInOutBack;
+    if (s == "ease_in_elastic")
+        return Easing::EaseInElastic;
+    if (s == "ease_out_elastic")
+        return Easing::EaseOutElastic;
+    if (s == "ease_in_out_elastic")
+        return Easing::EaseInOutElastic;
     return Easing::Linear;
 }
 

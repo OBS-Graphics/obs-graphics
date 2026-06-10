@@ -22,7 +22,13 @@ AnimationEditor::AnimationEditor(QWidget* parent) : QWidget(parent)
     auto* easingLabel = new QLabel("Easing");
     easingLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     easingComboBox = new QComboBox;
-    easingComboBox->addItems({"Linear", "Ease In", "Ease Out", "Ease In Out"});
+    easingComboBox->addItems({
+        "Linear", "Ease In", "Ease Out", "Ease In Out",
+        "Ease In (Cubic)", "Ease Out (Cubic)", "Ease In/Out (Cubic)",
+        "Ease In (Expo)",  "Ease Out (Expo)",  "Ease In/Out (Expo)",
+        "Ease In (Back)",  "Ease Out (Back)",  "Ease In/Out (Back)",
+        "Ease In (Elastic)", "Ease Out (Elastic)", "Ease In/Out (Elastic)",
+    });
     layout->addWidget(easingLabel, 1, 0);
     layout->addWidget(easingComboBox, 1, 1, 1, 3);
 

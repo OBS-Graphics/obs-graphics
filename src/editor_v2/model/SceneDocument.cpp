@@ -18,6 +18,30 @@ static std::string easingToString(Easing e)
         return "ease_out";
     case Easing::EaseInOut:
         return "ease_in_out";
+    case Easing::EaseInCubic:
+        return "ease_in_cubic";
+    case Easing::EaseOutCubic:
+        return "ease_out_cubic";
+    case Easing::EaseInOutCubic:
+        return "ease_in_out_cubic";
+    case Easing::EaseInExpo:
+        return "ease_in_expo";
+    case Easing::EaseOutExpo:
+        return "ease_out_expo";
+    case Easing::EaseInOutExpo:
+        return "ease_in_out_expo";
+    case Easing::EaseInBack:
+        return "ease_in_back";
+    case Easing::EaseOutBack:
+        return "ease_out_back";
+    case Easing::EaseInOutBack:
+        return "ease_in_out_back";
+    case Easing::EaseInElastic:
+        return "ease_in_elastic";
+    case Easing::EaseOutElastic:
+        return "ease_out_elastic";
+    case Easing::EaseInOutElastic:
+        return "ease_in_out_elastic";
     default:
         return "linear";
     }

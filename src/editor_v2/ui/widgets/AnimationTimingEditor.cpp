@@ -245,10 +245,22 @@ void AnimationTimingEditor::contextMenuEvent(QContextMenuEvent* event)
     };
 
     static constexpr struct { Easing easing; const char* name; } kAllEasings[] = {
-        { Easing::Linear,   "Linear"    },
-        { Easing::EaseIn,   "Ease In"   },
-        { Easing::EaseOut,  "Ease Out"  },
-        { Easing::EaseInOut,"Ease In/Out"},
+        { Easing::Linear,         "Linear"              },
+        { Easing::EaseIn,         "Ease In"             },
+        { Easing::EaseOut,        "Ease Out"            },
+        { Easing::EaseInOut,      "Ease In/Out"         },
+        { Easing::EaseInCubic,    "Ease In (Cubic)"     },
+        { Easing::EaseOutCubic,   "Ease Out (Cubic)"    },
+        { Easing::EaseInOutCubic, "Ease In/Out (Cubic)" },
+        { Easing::EaseInExpo,     "Ease In (Expo)"      },
+        { Easing::EaseOutExpo,    "Ease Out (Expo)"     },
+        { Easing::EaseInOutExpo,  "Ease In/Out (Expo)"  },
+        { Easing::EaseInBack,     "Ease In (Back)"      },
+        { Easing::EaseOutBack,    "Ease Out (Back)"     },
+        { Easing::EaseInOutBack,  "Ease In/Out (Back)"  },
+        { Easing::EaseInElastic,  "Ease In (Elastic)"   },
+        { Easing::EaseOutElastic, "Ease Out (Elastic)"  },
+        { Easing::EaseInOutElastic,"Ease In/Out (Elastic)"},
     };
 
     QMenu menu(this);
