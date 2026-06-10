@@ -33,6 +33,7 @@ private slots:
     void onAlignYChanged(int index);
     void onEllipsizeChanged(int index);
     void onWrapChanged(int index);
+    void onTextTransformChanged(int index);
 
 private:
     void loadFonts();
@@ -53,6 +54,7 @@ private:
     QCheckBox* m_autoScale;
     QComboBox* m_ellipsize;
     QComboBox* m_wrap;
+    QComboBox* m_textTransform;
 
     QToolButton* m_alignLeft;
     QToolButton* m_alignCenter;

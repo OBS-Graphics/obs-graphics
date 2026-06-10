@@ -43,6 +43,7 @@ CanvasWidget::CanvasWidget(SceneDocument* doc, EditorScene* editorState, QWidget
     setAutoFillBackground(false);
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setFocusPolicy(Qt::StrongFocus);
+    setMouseTracking(true);
 
     setupCairo();
 
@@ -590,10 +591,75 @@ void CanvasWidget::stopAnimationPreview()
     renderStaticScene();
 }
 
+void CanvasWidget::previewAtTime(int graphicIndex, bool isIn, double t)
+{
+    // Drop any timer-driven preview — scrub is the authority
+    if (m_animTimer) {
+        m_animTimer->stop();
+        m_animTimer->deleteLater();
+        m_animTimer = nullptr;
+    }
+
+    // Snapshot the scene once per preview session
+    if (!m_previewScene) {
+        const nlohmann::json j = SceneDocument::sceneToJson(m_doc->scene());
+        m_previewScene = std::make_unique<Scene>(Scene::LoadString(j.dump()));
+    }
+
+    // All graphics visible at rest, then override the one being previewed
+    for (auto& g : m_previewScene->graphics) {
+        g.state = GraphicState::Visible;
+        g.timer = 1e9;
+    }
+
+    if (graphicIndex >= 0 && graphicIndex < (int)m_previewScene->graphics.size()) {
+        Graphic& g = m_previewScene->graphics[graphicIndex];
+        g.timer = t;
+
+        if (isIn) {
+            bool allDone = true;
+            for (const auto& el : g.elements)
+                if (t < el.inAnimation.delay + el.inAnimation.duration) { allDone = false; break; }
+            g.state = allDone ? GraphicState::Visible : GraphicState::AnimatingIn;
+        } else {
+            bool allDone = true;
+            for (const auto& el : g.elements)
+                if (t < el.outAnimation.delay + el.outAnimation.duration) { allDone = false; break; }
+            g.state = allDone ? GraphicState::Hidden : GraphicState::AnimatingOut;
+        }
+    }
+
+    renderPreviewScene();
+}
+
 // ── Keyboard ──────────────────────────────────────────────────────────────────
+
+void CanvasWidget::keyReleaseEvent(QKeyEvent* event)
+{
+    if (m_dragging && m_dragMode == DragMode::Resize) {
+        // event->modifiers() still contains the just-released modifier — strip it
+        Qt::KeyboardModifiers mods = event->modifiers();
+        switch (event->key()) {
+        case Qt::Key_Shift:   mods &= ~Qt::ShiftModifier;   break;
+        case Qt::Key_Control: mods &= ~Qt::ControlModifier; break;
+        case Qt::Key_Alt:     mods &= ~Qt::AltModifier;     break;
+        default: break;
+        }
+        applyResizeDrag(m_lastDragWidgetPos, mods);
+        event->accept();
+        return;
+    }
+    QWidget::keyReleaseEvent(event);
+}
 
 void CanvasWidget::keyPressEvent(QKeyEvent* event)
 {
+    if (m_dragging && m_dragMode == DragMode::Resize) {
+        applyResizeDrag(m_lastDragWidgetPos, event->modifiers());
+        event->accept();
+        return;
+    }
+
     const SelectionId sel = m_editorState->selection();
     if (m_previewScene ||
         (sel.level != SelectionId::Level::Element && sel.level != SelectionId::Level::Graphic)) {
@@ -771,6 +837,181 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
     }
 }
 
+void CanvasWidget::applyResizeDrag(QPointF widgetPos, Qt::KeyboardModifiers mods)
+{
+    const QPointF scenePt = widgetToScene(widgetPos);
+    const double dx = scenePt.x() - m_dragStartScene.x();
+    const double dy = scenePt.y() - m_dragStartScene.y();
+    const double ox = m_dragOrigBounds.x, oy = m_dragOrigBounds.y;
+    const double ow = m_dragOrigBounds.width, oh = m_dragOrigBounds.height;
+    Rectangle newBounds = m_dragOrigBounds;
+
+    switch (m_dragHandle) {
+    case 0:
+        newBounds.x = ox + dx;
+        newBounds.y = oy + dy;
+        newBounds.width = std::max(1.0, ow - dx);
+        newBounds.height = std::max(1.0, oh - dy);
+        break;
+    case 1:
+        newBounds.y = oy + dy;
+        newBounds.height = std::max(1.0, oh - dy);
+        break;
+    case 2:
+        newBounds.y = oy + dy;
+        newBounds.width = std::max(1.0, ow + dx);
+        newBounds.height = std::max(1.0, oh - dy);
+        break;
+    case 3:
+        newBounds.x = ox + dx;
+        newBounds.width = std::max(1.0, ow - dx);
+        break;
+    case 4:
+        newBounds.width = std::max(1.0, ow + dx);
+        break;
+    case 5:
+        newBounds.x = ox + dx;
+        newBounds.width = std::max(1.0, ow - dx);
+        newBounds.height = std::max(1.0, oh + dy);
+        break;
+    case 6:
+        newBounds.height = std::max(1.0, oh + dy);
+        break;
+    case 7:
+        newBounds.width = std::max(1.0, ow + dx);
+        newBounds.height = std::max(1.0, oh + dy);
+        break;
+    default:
+        break;
+    }
+
+    // Shift: maintain original aspect ratio (corners only)
+    if ((mods & Qt::ShiftModifier) && oh > 0 &&
+        (m_dragHandle == 0 || m_dragHandle == 2 || m_dragHandle == 5 || m_dragHandle == 7)) {
+        const double wScale = newBounds.width / ow;
+        const double hScale = newBounds.height / oh;
+        const double scale = std::min(wScale, hScale);
+        newBounds.width = std::max(1.0, ow * scale);
+        newBounds.height = std::max(1.0, oh * scale);
+        switch (m_dragHandle) {
+        case 0:
+            newBounds.x = ox + ow - newBounds.width;
+            newBounds.y = oy + oh - newBounds.height;
+            break;
+        case 2:
+            newBounds.x = ox;
+            newBounds.y = oy + oh - newBounds.height;
+            break;
+        case 5:
+            newBounds.x = ox + ow - newBounds.width;
+            newBounds.y = oy;
+            break;
+        case 7:
+            newBounds.x = ox;
+            newBounds.y = oy;
+            break;
+        default:
+            break;
+        }
+    }
+
+    // Ctrl: scale from center (size change is doubled, opposite edge also moves)
+    if (mods & Qt::ControlModifier) {
+        const double cx = ox + ow / 2.0;
+        const double cy = oy + oh / 2.0;
+        newBounds.width = std::max(1.0, 2.0 * newBounds.width - ow);
+        newBounds.height = std::max(1.0, 2.0 * newBounds.height - oh);
+        newBounds.x = cx - newBounds.width / 2.0;
+        newBounds.y = cy - newBounds.height / 2.0;
+    }
+
+    // Snap only the edge(s) being dragged
+    if (m_snappingEnabled) {
+        const double threshold = 8.0 * sceneW() / letterboxRect().width();
+        QList<double> candX = {0.0, sceneW() / 2.0, double(sceneW())};
+        QList<double> candY = {0.0, sceneH() / 2.0, double(sceneH())};
+        appendGuideCandidates(candX, candY);
+        const Scene& scene = m_doc->scene();
+        for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
+            for (int eei = 0; eei < (int)scene.graphics[ggi].elements.size(); ++eei) {
+                if (ggi == m_dragGi && eei == m_dragEi)
+                    continue;
+                const Rectangle& ob = scene.graphics[ggi].elements[eei].bounds;
+                candX << ob.x << ob.x + ob.width / 2.0 << ob.x + ob.width;
+                candY << ob.y << ob.y + ob.height / 2.0 << ob.y + ob.height;
+            }
+        }
+
+        m_snapLinesX.clear();
+        m_snapLinesY.clear();
+
+        auto snapX = [&](double& edge) {
+            double s = snapEdge(edge, candX, threshold);
+            if (s != edge) { m_snapLinesX << s; edge = s; }
+        };
+        auto snapY = [&](double& edge) {
+            double s = snapEdge(edge, candY, threshold);
+            if (s != edge) { m_snapLinesY << s; edge = s; }
+        };
+
+        switch (m_dragHandle) {
+        case 0:
+            snapX(newBounds.x); newBounds.width  = ox + ow - newBounds.x;
+            snapY(newBounds.y); newBounds.height = oy + oh - newBounds.y;
+            break;
+        case 1:
+            snapY(newBounds.y); newBounds.height = oy + oh - newBounds.y;
+            break;
+        case 2: {
+            double r = newBounds.x + newBounds.width;
+            snapX(r); newBounds.width = r - newBounds.x;
+            snapY(newBounds.y); newBounds.height = oy + oh - newBounds.y;
+            break;
+        }
+        case 3:
+            snapX(newBounds.x); newBounds.width = ox + ow - newBounds.x;
+            break;
+        case 4: {
+            double r = newBounds.x + newBounds.width;
+            snapX(r); newBounds.width = r - newBounds.x;
+            break;
+        }
+        case 5: {
+            snapX(newBounds.x); newBounds.width = ox + ow - newBounds.x;
+            double b2 = newBounds.y + newBounds.height;
+            snapY(b2); newBounds.height = b2 - newBounds.y;
+            break;
+        }
+        case 6: {
+            double b2 = newBounds.y + newBounds.height;
+            snapY(b2); newBounds.height = b2 - newBounds.y;
+            break;
+        }
+        case 7: {
+            double r = newBounds.x + newBounds.width;
+            snapX(r); newBounds.width = r - newBounds.x;
+            double b2 = newBounds.y + newBounds.height;
+            snapY(b2); newBounds.height = b2 - newBounds.y;
+            break;
+        }
+        default:
+            break;
+        }
+    } else {
+        m_snapLinesX.clear();
+        m_snapLinesY.clear();
+    }
+
+    const int gi = m_dragGi, ei = m_dragEi;
+    m_doc->applyMutation([gi, ei, newBounds](Scene& s) {
+        if (gi < (int)s.graphics.size()) {
+            Graphic& g = s.graphics[gi];
+            if (ei < (int)g.elements.size())
+                g.elements[ei].bounds = newBounds;
+        }
+    });
+}
+
 void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 {
     // Middle-button pan
@@ -789,6 +1030,7 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
     const QPointF wpos = event->position();
     const QPointF scenePt = widgetToScene(wpos);
+    m_lastDragWidgetPos = wpos;
 
     if (m_dragMode == DragMode::MoveGraphic) {
         const double dx = scenePt.x() - m_dragStartScene.x();
@@ -807,198 +1049,19 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
         return;
     }
 
-    Rectangle newBounds = m_dragOrigBounds;
-    const double ox = m_dragOrigBounds.x, oy = m_dragOrigBounds.y;
-    const double ow = m_dragOrigBounds.width, oh = m_dragOrigBounds.height;
-
-    if (m_dragMode == DragMode::Move) {
-        newBounds.x = ox + (scenePt.x() - m_dragStartScene.x());
-        newBounds.y = oy + (scenePt.y() - m_dragStartScene.y());
-
-    } else { // Resize
-        const double dx = scenePt.x() - m_dragStartScene.x();
-        const double dy = scenePt.y() - m_dragStartScene.y();
-        switch (m_dragHandle) {
-        case 0:
-            newBounds.x = ox + dx;
-            newBounds.y = oy + dy;
-            newBounds.width = std::max(1.0, ow - dx);
-            newBounds.height = std::max(1.0, oh - dy);
-            break;
-        case 1:
-            newBounds.y = oy + dy;
-            newBounds.height = std::max(1.0, oh - dy);
-            break;
-        case 2:
-            newBounds.y = oy + dy;
-            newBounds.width = std::max(1.0, ow + dx);
-            newBounds.height = std::max(1.0, oh - dy);
-            break;
-        case 3:
-            newBounds.x = ox + dx;
-            newBounds.width = std::max(1.0, ow - dx);
-            break;
-        case 4:
-            newBounds.width = std::max(1.0, ow + dx);
-            break;
-        case 5:
-            newBounds.x = ox + dx;
-            newBounds.width = std::max(1.0, ow - dx);
-            newBounds.height = std::max(1.0, oh + dy);
-            break;
-        case 6:
-            newBounds.height = std::max(1.0, oh + dy);
-            break;
-        case 7:
-            newBounds.width = std::max(1.0, ow + dx);
-            newBounds.height = std::max(1.0, oh + dy);
-            break;
-        default:
-            break;
-        }
-
-        // Shift: maintain original aspect ratio (corners only)
-        if ((event->modifiers() & Qt::ShiftModifier) && oh > 0 &&
-            (m_dragHandle == 0 || m_dragHandle == 2 || m_dragHandle == 5 || m_dragHandle == 7)) {
-            // Use the dimension that changed proportionally more
-            const double wScale = newBounds.width / ow;
-            const double hScale = newBounds.height / oh;
-            const double scale = std::min(wScale, hScale);
-            newBounds.width = std::max(1.0, ow * scale);
-            newBounds.height = std::max(1.0, oh * scale);
-            // Reposition so the opposite corner stays fixed
-            switch (m_dragHandle) {
-            case 0:
-                newBounds.x = ox + ow - newBounds.width;
-                newBounds.y = oy + oh - newBounds.height;
-                break;
-            case 2:
-                newBounds.x = ox;
-                newBounds.y = oy + oh - newBounds.height;
-                break;
-            case 5:
-                newBounds.x = ox + ow - newBounds.width;
-                newBounds.y = oy;
-                break;
-            case 7:
-                newBounds.x = ox;
-                newBounds.y = oy;
-                break;
-            default:
-                break;
-            }
-        }
-
-        // Ctrl: scale from center (size change is doubled, opposite edge also moves)
-        if (event->modifiers() & Qt::ControlModifier) {
-            const double cx = ox + ow / 2.0;
-            const double cy = oy + oh / 2.0;
-            newBounds.width = std::max(1.0, 2.0 * newBounds.width - ow);
-            newBounds.height = std::max(1.0, 2.0 * newBounds.height - oh);
-            newBounds.x = cx - newBounds.width / 2.0;
-            newBounds.y = cy - newBounds.height / 2.0;
-        }
+    if (m_dragMode == DragMode::Resize) {
+        applyResizeDrag(wpos, event->modifiers());
+        return;
     }
 
-    // Apply snapping
-    if (m_snappingEnabled) {
-        if (m_dragMode == DragMode::Move) {
-            newBounds = applySnapping(newBounds, m_dragGi, m_dragEi);
-        } else {
-            // Snap only the edge(s) being dragged
-            const double threshold = 8.0 * sceneW() / letterboxRect().width();
-            QList<double> candX = {0.0, sceneW() / 2.0, double(sceneW())};
-            QList<double> candY = {0.0, sceneH() / 2.0, double(sceneH())};
-            appendGuideCandidates(candX, candY);
-            const Scene& scene = m_doc->scene();
-            for (int ggi = 0; ggi < (int)scene.graphics.size(); ++ggi) {
-                for (int eei = 0; eei < (int)scene.graphics[ggi].elements.size(); ++eei) {
-                    if (ggi == m_dragGi && eei == m_dragEi)
-                        continue;
-                    const Rectangle& ob = scene.graphics[ggi].elements[eei].bounds;
-                    candX << ob.x << ob.x + ob.width / 2.0 << ob.x + ob.width;
-                    candY << ob.y << ob.y + ob.height / 2.0 << ob.y + ob.height;
-                }
-            }
+    // Move drag
+    Rectangle newBounds = m_dragOrigBounds;
+    newBounds.x = m_dragOrigBounds.x + (scenePt.x() - m_dragStartScene.x());
+    newBounds.y = m_dragOrigBounds.y + (scenePt.y() - m_dragStartScene.y());
 
-            m_snapLinesX.clear();
-            m_snapLinesY.clear();
-
-            auto snapX = [&](double& edge) {
-                double s = snapEdge(edge, candX, threshold);
-                if (s != edge) {
-                    m_snapLinesX << s;
-                    edge = s;
-                }
-            };
-            auto snapY = [&](double& edge) {
-                double s = snapEdge(edge, candY, threshold);
-                if (s != edge) {
-                    m_snapLinesY << s;
-                    edge = s;
-                }
-            };
-
-            switch (m_dragHandle) {
-            case 0: {
-                snapX(newBounds.x);
-                newBounds.width = ox + ow - newBounds.x;
-                snapY(newBounds.y);
-                newBounds.height = oy + oh - newBounds.y;
-                break;
-            }
-            case 1: {
-                snapY(newBounds.y);
-                newBounds.height = oy + oh - newBounds.y;
-                break;
-            }
-            case 2: {
-                double r = newBounds.x + newBounds.width;
-                snapX(r);
-                newBounds.width = r - newBounds.x;
-                snapY(newBounds.y);
-                newBounds.height = oy + oh - newBounds.y;
-                break;
-            }
-            case 3: {
-                snapX(newBounds.x);
-                newBounds.width = ox + ow - newBounds.x;
-                break;
-            }
-            case 4: {
-                double r = newBounds.x + newBounds.width;
-                snapX(r);
-                newBounds.width = r - newBounds.x;
-                break;
-            }
-            case 5: {
-                snapX(newBounds.x);
-                newBounds.width = ox + ow - newBounds.x;
-                double b2 = newBounds.y + newBounds.height;
-                snapY(b2);
-                newBounds.height = b2 - newBounds.y;
-                break;
-            }
-            case 6: {
-                double b2 = newBounds.y + newBounds.height;
-                snapY(b2);
-                newBounds.height = b2 - newBounds.y;
-                break;
-            }
-            case 7: {
-                double r = newBounds.x + newBounds.width;
-                snapX(r);
-                newBounds.width = r - newBounds.x;
-                double b2 = newBounds.y + newBounds.height;
-                snapY(b2);
-                newBounds.height = b2 - newBounds.y;
-                break;
-            }
-            default:
-                break;
-            }
-        }
-    } else {
+    if (m_snappingEnabled)
+        newBounds = applySnapping(newBounds, m_dragGi, m_dragEi);
+    else {
         m_snapLinesX.clear();
         m_snapLinesY.clear();
     }

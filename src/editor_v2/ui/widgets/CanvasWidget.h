@@ -44,6 +44,7 @@ public:
 
     void startAnimationPreview(int graphicIndex, bool playIn);
     void stopAnimationPreview();
+    void previewAtTime(int graphicIndex, bool isIn, double t);
 
     // Guides
     void setGuides(GuideFlags flags);
@@ -72,6 +73,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -118,6 +120,9 @@ private:
     // Cursor
     void updateCursorForPos(QPointF widgetPos);
 
+    // Resize drag (extracted so key events can re-trigger it without mouse movement)
+    void applyResizeDrag(QPointF widgetPos, Qt::KeyboardModifiers mods);
+
     // Graphic helpers
     Rectangle graphicSceneBounds(int gi) const;
 
@@ -158,6 +163,7 @@ private:
     int m_dragHandle{-1};
     QPointF m_dragStartWidget;
     QPointF m_dragStartScene;
+    QPointF m_lastDragWidgetPos; // latest widget-space mouse pos during drag
     Rectangle m_dragOrigBounds;
     int m_dragGi{-1};
     int m_dragEi{-1};

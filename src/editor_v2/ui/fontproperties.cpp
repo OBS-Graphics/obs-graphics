@@ -232,6 +232,10 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent) : QWidget(pa
     m_wrap->addItems({"Word", "Character", "Word + Char"});
     familyForm->addRow("Wrap", m_wrap);
 
+    m_textTransform = new QComboBox;
+    m_textTransform->addItems({"None", "Capitalize", "Uppercase", "Lowercase"});
+    familyForm->addRow("Transform", m_textTransform);
+
     innerLayout->addWidget(familyBox);
     innerLayout->addStretch(1);
 
@@ -253,6 +257,8 @@ FontProperties::FontProperties(SceneDocument* doc, QWidget* parent) : QWidget(pa
             &FontProperties::onEllipsizeChanged);
     connect(m_wrap, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &FontProperties::onWrapChanged);
+    connect(m_textTransform, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &FontProperties::onTextTransformChanged);
 
     connect(m_italicOption, &QToolButton::toggled, this, &FontProperties::onFontItalicToggled);
     connect(m_underlineOption, &QToolButton::toggled, this, &FontProperties::onUnderlineToggled);
@@ -464,6 +470,21 @@ void FontProperties::onDocumentChanged()
         break;
     }
 
+    switch (el->transform) {
+    case TextTransform::Capitalize:
+        m_textTransform->setCurrentIndex(1);
+        break;
+    case TextTransform::Uppercase:
+        m_textTransform->setCurrentIndex(2);
+        break;
+    case TextTransform::Lowercase:
+        m_textTransform->setCurrentIndex(3);
+        break;
+    default:
+        m_textTransform->setCurrentIndex(0);
+        break;
+    }
+
     m_updating = false;
 }
 
@@ -592,4 +613,16 @@ void FontProperties::onWrapChanged(int index)
     m_doc->undoStack()->push(new SetElementFieldCmd<WrapMode>(
         m_doc, m_graphicId, m_elementId, wm, [](Element& e) -> WrapMode& { return e.wrapMode; },
         "wrap"));
+}
+
+void FontProperties::onTextTransformChanged(int index)
+{
+    if (m_updating || m_graphicId.empty() || m_elementId.empty())
+        return;
+    static const TextTransform kMap[] = {TextTransform::None, TextTransform::Capitalize,
+                                         TextTransform::Uppercase, TextTransform::Lowercase};
+    const TextTransform t = kMap[index];
+    m_doc->undoStack()->push(new SetElementFieldCmd<TextTransform>(
+        m_doc, m_graphicId, m_elementId, t,
+        [](Element& e) -> TextTransform& { return e.transform; }, "text_transform"));
 }
