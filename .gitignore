@@ -13,6 +13,7 @@
 !.gersemirc
 !.gitignore
 !buildspec.json
+!CLAUDE.md
 !CMakeLists.txt
 !CMakePresets.json
 !LICENSE
