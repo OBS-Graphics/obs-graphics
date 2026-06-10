@@ -113,6 +113,8 @@ build() {
   log_group "Configuring ${product_name}..."
   cmake -S ${project_root} ${cmake_args}
 
+  local cmake_project_name=${${(f)"$(find ${project_root}/build_macos -maxdepth 1 -name '*.xcodeproj' | head -1)"}:t:r}
+
   log_group "Building ${product_name}..."
   run_xcodebuild() {
     if (( debug )) {
@@ -130,8 +132,8 @@ build() {
     ONLY_ACTIVE_ARCH=NO
     -arch arm64
     -arch x86_64
-    -project ${product_name}.xcodeproj
-    -target ${product_name}
+    -project ${cmake_project_name}.xcodeproj
+    -target ${cmake_project_name}
     -destination "generic/platform=macOS,name=Any Mac"
     -configuration ${config}
     -parallelizeTargets
