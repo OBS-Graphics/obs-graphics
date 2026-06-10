@@ -62,5 +62,11 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
   }
 
   sudo apt-get install ${apt_args} ${_qt_packages}
+
+  log_group 'Installing engine dependencies...'
+  sudo apt-get install ${apt_args} \
+    libcairo2-dev \
+    libpango1.0-dev \
+    liblua5.4-dev
   log_group
 }
