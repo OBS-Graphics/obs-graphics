@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "animation.h"
+
 static void RoundRect(cairo_t* ctx, double x, double y, double w, double h, const float r[4])
 {
     double tl = r[0], tr = r[1], br = r[2], bl = r[3];
@@ -15,18 +17,42 @@ static void RoundRect(cairo_t* ctx, double x, double y, double w, double h, cons
 }
 
 void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
-                     const AnimatedTransform* maskXf) const
+                     const AnimatedTransform* maskXf,
+                     double timer, bool isOut,
+                     double parentOffX, double parentOffY) const
 {
-    ApplyClipping(ctx, xf, maskXf);
+    // Skip invisible elements — also prevents degenerate cairo_scale(0,0) for ScaleIn at t=0
+    if (opacity * xf.opacity < 1e-6f)
+        return;
 
-    // Slide offset
+    // Slide offset first so the clip region moves with the element, not against it
     cairo_translate(ctx, xf.offsetX, xf.offsetY);
 
-    // Scale and rotation around element center
+    // Wipe clip only — applied before the group so children are revealed/hidden
+    // with the parent during wipe animations. Corner radius is intentionally
+    // excluded here: it is cosmetic for the parent shape and must not clip children.
+    const bool isWiping = xf.clipX > 0.0 || xf.clipY > 0.0 || xf.clipW < 1.0 || xf.clipH < 1.0;
+    if (isWiping) {
+        cairo_rectangle(ctx, 0, 0, bounds.width, bounds.height);
+        cairo_clip(ctx);
+        cairo_rectangle(ctx, xf.clipX * bounds.width, xf.clipY * bounds.height,
+                        xf.clipW * bounds.width, xf.clipH * bounds.height);
+        cairo_clip(ctx);
+    }
+
     double cx = bounds.width / 2.0;
     double cy = bounds.height / 2.0;
 
-    if (xf.scale != 1.0) {
+    // Composite group: self content + children share this opacity layer
+    cairo_push_group(ctx);
+
+    // Self content — full clip (corner radius + wipe + mask) inside save/restore
+    // so it never bleeds into the children rendering below.
+    cairo_save(ctx);
+
+    ApplyClipping(ctx, xf, maskXf, parentOffX, parentOffY);
+
+    if (xf.scale != 1.0 && xf.scale > 1e-6) {
         cairo_translate(ctx, cx, cy);
         cairo_scale(ctx, xf.scale, xf.scale);
         cairo_translate(ctx, -cx, -cy);
@@ -37,9 +63,6 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
         cairo_rotate(ctx, rotation * M_PI / 180.0);
         cairo_translate(ctx, -cx, -cy);
     }
-
-    // Render into a temporary group so we can apply the combined opacity
-    cairo_push_group(ctx);
 
     switch (type) {
     case ElementType::Rectangle: {
@@ -178,12 +201,43 @@ void Element::Render(cairo_t* ctx, const AnimatedTransform& xf,
     }
     }
 
+    cairo_restore(ctx); // undo scale/rotation so children use the unmodified CTM
+
+    // Children rendered on top, inside the group so parent opacity cascades to them
+    if (!children.empty()) {
+        std::vector<const Element*> sorted(children.begin(), children.end());
+        std::stable_sort(sorted.begin(), sorted.end(),
+                         [](const Element* a, const Element* b) { return a->zOrder < b->zOrder; });
+
+        cairo_save(ctx);
+        for (const Element* child : sorted) {
+            const auto& def = isOut ? child->outAnimation : child->inAnimation;
+            AnimatedTransform childXf = animation::EvaluateAnimation(def, timer, isOut, *child);
+
+            const AnimatedTransform* childMaskXf = nullptr;
+            AnimatedTransform childMaskXfVal;
+            if (child->mask) {
+                const auto& mDef = isOut ? child->mask->outAnimation : child->mask->inAnimation;
+                childMaskXfVal = animation::EvaluateAnimation(mDef, timer, isOut, *child->mask);
+                childMaskXf = &childMaskXfVal;
+            }
+
+            cairo_save(ctx);
+            cairo_translate(ctx, child->bounds.x, child->bounds.y);
+            child->Render(ctx, childXf, childMaskXf, timer, isOut,
+                          parentOffX + xf.offsetX, parentOffY + xf.offsetY);
+            cairo_restore(ctx);
+        }
+        cairo_restore(ctx);
+    }
+
     cairo_pop_group_to_source(ctx);
     cairo_paint_with_alpha(ctx, opacity * xf.opacity);
 }
 
 void Element::ApplyClipping(cairo_t* ctx, const AnimatedTransform& xf,
-                            const AnimatedTransform* maskXf) const
+                            const AnimatedTransform* maskXf,
+                            double parentOffX, double parentOffY) const
 {
     const bool isWiping = xf.clipX > 0.0 || xf.clipY > 0.0 || xf.clipW < 1.0 || xf.clipH < 1.0;
     const bool hasRadius =
@@ -197,8 +251,9 @@ void Element::ApplyClipping(cairo_t* ctx, const AnimatedTransform& xf,
     if (mask != nullptr) {
         Point maskGlobal = mask->GetGlobalPosition();
         Point selfGlobal = GetGlobalPosition();
-        float mx = (float)(maskGlobal.x - selfGlobal.x);
-        float my = (float)(maskGlobal.y - selfGlobal.y);
+        // CTM origin = selfGlobal + parentOff + xf.offset; subtract all to get clip-local coords
+        float mx = (float)(maskGlobal.x - selfGlobal.x) - (float)xf.offsetX - (float)parentOffX;
+        float my = (float)(maskGlobal.y - selfGlobal.y) - (float)xf.offsetY - (float)parentOffY;
         if (maskXf) {
             mx += (float)maskXf->offsetX;
             my += (float)maskXf->offsetY;

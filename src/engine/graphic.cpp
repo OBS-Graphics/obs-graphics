@@ -78,24 +78,27 @@ void Graphic::Render(cairo_t* ctx) const
         xforms[i] = animation::EvaluateAnimation(def, timer, isOut, elements[i]);
     }
 
+    auto findIdx = [&](const Element* p) -> size_t {
+        for (size_t i = 0; i < elements.size(); ++i)
+            if (&elements[i] == p) return i;
+        return SIZE_MAX;
+    };
+
     for (size_t ei : eOrder) {
         const auto& el = elements[ei];
-        const AnimatedTransform& xf = xforms[ei];
+        if (el.parent != nullptr) continue;
 
+        const AnimatedTransform& xf = xforms[ei];
         const AnimatedTransform* maskXf = nullptr;
         if (el.mask != nullptr) {
-            for (size_t mi = 0; mi < elements.size(); ++mi) {
-                if (&elements[mi] == el.mask) {
-                    maskXf = &xforms[mi];
-                    break;
-                }
-            }
+            size_t mi = findIdx(el.mask);
+            if (mi != SIZE_MAX) maskXf = &xforms[mi];
         }
 
         auto pos = el.GetGlobalPosition();
         cairo_save(ctx);
         cairo_translate(ctx, pos.x, pos.y);
-        el.Render(ctx, xf, maskXf);
+        el.Render(ctx, xf, maskXf, timer, isOut, 0.0, 0.0);
         cairo_restore(ctx);
     }
 }

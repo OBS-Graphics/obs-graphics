@@ -2,6 +2,7 @@
 
 #include <pango/pangocairo.h>
 #include <string>
+#include <vector>
 
 #include "animation.h"
 #include "types.hpp"
@@ -62,6 +63,7 @@ struct Element {
 
     Element* mask{nullptr};
     Element* parent{nullptr};
+    std::vector<Element*> children;
 
     bool fitToChildren{false};
     float childrenPadding[4]{0.0f, 0.0f, 0.0f, 0.0f}; // top, right, bottom, left
@@ -84,8 +86,11 @@ struct Element {
     TextTransform transform{TextTransform::None};
 
     void Render(cairo_t* ctx, const AnimatedTransform& xf,
-                const AnimatedTransform* maskXf = nullptr) const;
+                const AnimatedTransform* maskXf,
+                double timer, bool isOut,
+                double parentOffX = 0.0, double parentOffY = 0.0) const;
     void ApplyClipping(cairo_t* ctx, const AnimatedTransform& xf,
-                       const AnimatedTransform* maskXf = nullptr) const;
+                       const AnimatedTransform* maskXf,
+                       double parentOffX, double parentOffY) const;
     Point GetGlobalPosition() const;
 };

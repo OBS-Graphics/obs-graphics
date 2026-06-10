@@ -21,15 +21,19 @@ AnimatedTransform EvaluateAnimation(const AnimationDef& def, double timer, bool 
         break;
     case AnimationType::SlideUp:
         out.offsetY = (1.0 - p) * el.bounds.height;
+        out.opacity = p;
         break;
     case AnimationType::SlideDown:
         out.offsetY = -(1.0 - p) * el.bounds.height;
+        out.opacity = p;
         break;
     case AnimationType::SlideLeft:
         out.offsetX = (1.0 - p) * el.bounds.width;
+        out.opacity = p;
         break;
     case AnimationType::SlideRight:
         out.offsetX = -(1.0 - p) * el.bounds.width;
+        out.opacity = p;
         break;
     case AnimationType::WipeUp:
         out.clipY = 1.0 - p;

@@ -263,8 +263,10 @@ static Graphic ParseGraphic(const json& j)
 
         if (!ref.parentId.empty()) {
             auto it = idMap.find(ref.parentId);
-            if (it != idMap.end())
+            if (it != idMap.end()) {
                 el.parent = &g.elements[it->second];
+                el.parent->children.push_back(&el);
+            }
         }
     }
 

@@ -476,22 +476,31 @@ nlohmann::json SceneDocument::sceneToJson(const Scene& scene, const std::string&
 
 void SceneDocument::resolveElementPointers()
 {
+    // Clear all raw pointers first so we can rebuild them cleanly
+    for (auto& g : m_scene.graphics)
+        for (auto& el : g.elements) {
+            el.mask = nullptr;
+            el.parent = nullptr;
+            el.children.clear();
+        }
+
     for (auto& g : m_scene.graphics) {
         auto gRefIt = m_elementRefs.find(g.id);
         if (gRefIt == m_elementRefs.end())
             continue;
         const RefMap& rm = gRefIt->second;
         for (auto& el : g.elements) {
-            el.mask = nullptr;
-            el.parent = nullptr;
             auto it = rm.find(el.id);
             if (it == rm.end())
                 continue;
             const auto& [maskId, parentId] = it->second;
             if (!maskId.empty())
                 el.mask = findElementById(g, maskId);
-            if (!parentId.empty())
+            if (!parentId.empty()) {
                 el.parent = findElementById(g, parentId);
+                if (el.parent)
+                    el.parent->children.push_back(&el);
+            }
         }
     }
 }
