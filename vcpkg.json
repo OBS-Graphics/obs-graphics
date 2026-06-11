@@ -2,7 +2,6 @@
   "dependencies": [
     "cairo",
     "pango",
-    "lua",
-    "pkgconf"
+    "lua"
   ]
 }

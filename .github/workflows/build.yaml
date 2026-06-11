@@ -78,12 +78,9 @@ jobs:
         shell: pwsh
         run: |
           $VcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
-          $VcpkgInstalled = "$VcpkgRoot\installed\x64-windows"
-          $env:PKG_CONFIG_PATH = "$VcpkgInstalled\lib\pkgconfig"
           cmake --preset windows-ci-x64 `
             "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake" `
-            "-DVCPKG_TARGET_TRIPLET=x64-windows" `
-            "-DPKG_CONFIG_EXECUTABLE=$VcpkgInstalled\tools\pkgconf\pkgconf.exe"
+            "-DVCPKG_TARGET_TRIPLET=x64-windows"
 
       - name: Build
         run: cmake --build --preset windows-ci-x64 --config RelWithDebInfo

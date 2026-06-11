@@ -27,8 +27,6 @@ set_target_properties(
   PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON
 )
 
-find_package(PkgConfig REQUIRED)
-
 add_subdirectory(engine)
 
 target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_20)
