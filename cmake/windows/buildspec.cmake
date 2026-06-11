@@ -19,6 +19,11 @@ function(_check_dependencies_windows)
   set(dependencies_list prebuilt qt6 obs-studio)
 
   _check_dependencies()
+  # Propagate the cache-updated CMAKE_PREFIX_PATH back to the caller's scope.
+  # On Windows, vcpkg's toolchain sets CMAKE_PREFIX_PATH as a normal variable
+  # before CMakeLists.txt runs, which shadows the CACHE update made inside
+  # _check_dependencies(). Reading $CACHE{} bypasses the stale normal variable.
+  set(CMAKE_PREFIX_PATH "$CACHE{CMAKE_PREFIX_PATH}" PARENT_SCOPE)
 endfunction()
 
 _check_dependencies_windows()
