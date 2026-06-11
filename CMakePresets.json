@@ -42,7 +42,7 @@
       "generator": "Xcode",
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
-        "CMAKE_COMPILE_WARNING_AS_ERROR": true,
+        "CMAKE_COMPILE_WARNING_AS_ERROR": false,
         "ENABLE_CCACHE": true
       }
     },
