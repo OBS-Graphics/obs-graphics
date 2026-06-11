@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "cairo",
+    "pango",
+    "lua",
+    "pkgconf"
+  ]
+}

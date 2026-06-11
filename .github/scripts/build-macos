@@ -140,7 +140,6 @@ build() {
   local -a build_args=(
     ONLY_ACTIVE_ARCH=NO
     -arch arm64
-    -arch x86_64
     -project ${cmake_project_name}.xcodeproj
     -target ${cmake_project_name}
     -destination "generic/platform=macOS,name=Any Mac"

@@ -37,10 +37,11 @@
     {
       "name": "macos-ci",
       "inherits": ["macos"],
-      "displayName": "macOS Universal CI build",
-      "description": "Build for macOS 12.0+ (Universal binary) for CI",
+      "displayName": "macOS arm64 CI build",
+      "description": "Build for macOS 12.0+ (arm64) for CI — universal binary requires hosted fat Cairo/Pango prebuilts",
       "generator": "Xcode",
       "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_COMPILE_WARNING_AS_ERROR": true,
         "ENABLE_CCACHE": true
       }
