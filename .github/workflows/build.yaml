@@ -72,7 +72,7 @@ jobs:
           submodules: recursive
 
       - name: Install vcpkg dependencies
-        run: vcpkg install cairo pango lua pkgconf --triplet x64-windows
+        run: vcpkg install --triplet x64-windows
 
       - name: Configure
         shell: pwsh
