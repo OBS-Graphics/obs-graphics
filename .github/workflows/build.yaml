@@ -47,9 +47,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install ccache cmake jq xcbeautify pkgconf cairo pango lua
+          brew install ccache cmake jq xcbeautify pkgconf cairo pango lua@5.4
           BREW_PREFIX="$(brew --prefix)"
-          echo "PKG_CONFIG_PATH=${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig" >> "$GITHUB_ENV"
+          LUA54_PREFIX="$(brew --prefix lua@5.4)"
+          echo "PKG_CONFIG_PATH=${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LUA54_PREFIX}/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Configure
         run: cmake --preset macos-ci
