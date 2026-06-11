@@ -54,7 +54,14 @@ function(_setup_obs_studio)
 
   if(OS_WINDOWS)
     set(_cmake_generator "${CMAKE_GENERATOR}")
-    set(_cmake_arch "-A ${arch},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+    # Pass the platform without a leading space so cmake parses "-A<value>" correctly.
+    # Including a space produces " x64,..." (leading space) which VS rejects as an
+    # unknown platform.  Omit version= when unset to let cmake auto-detect the SDK.
+    if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
+      set(_cmake_arch "-A${arch},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+    else()
+      set(_cmake_arch "-A${arch}")
+    endif()
     set(_cmake_extra "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION} -DCMAKE_ENABLE_SCRIPTING=OFF")
   elseif(OS_MACOS)
     set(_cmake_generator "Xcode")

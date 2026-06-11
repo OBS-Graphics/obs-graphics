@@ -273,7 +273,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/AppData/Local/vcpkg/archives
-          key: vcpkg-plugin-x64-windows-v1
+          key: vcpkg-plugin-x64-windows-v2
           restore-keys: vcpkg-plugin-x64-windows-
 
       - name: Build Plugin 🧱

@@ -110,6 +110,15 @@ build() {
     typeset -gx CODESIGN_TEAM="$(print "${CODESIGN_IDENT}" | /usr/bin/sed -En 's/.+\((.+)\)/\1/p')"
   }
 
+  # Ensure pkg-config can find Homebrew-installed packages.
+  # Without this, cmake's FindPkgConfig may miss cairo/pango on macOS runners
+  # where PKG_CONFIG_PATH is not set by default.
+  if (( ${+commands[brew]} )) {
+    local brew_prefix
+    brew_prefix=$(brew --prefix)
+    typeset -gx PKG_CONFIG_PATH="${brew_prefix}/lib/pkgconfig:${brew_prefix}/share/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+  }
+
   log_group "Configuring ${product_name}..."
   cmake -S ${project_root} ${cmake_args}
 
