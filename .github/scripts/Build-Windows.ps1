@@ -81,12 +81,11 @@ function Build {
               "Set VCPKG_INSTALLATION_ROOT or VCPKG_ROOT to your vcpkg root directory."
     }
 
-    $VcpkgInstalled = "$VcpkgRoot\installed\x64-windows"
-    $env:PKG_CONFIG_PATH = "$VcpkgInstalled\lib\pkgconfig"
+    # vcpkg manifest mode installs packages into the build directory, not the global installed tree
+    $env:PKG_CONFIG_PATH = "$ProjectRoot\build_${Target}\vcpkg_installed\x64-windows\lib\pkgconfig"
     $CmakeArgs += @(
         "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake"
         '-DVCPKG_TARGET_TRIPLET=x64-windows'
-        "-DPKG_CONFIG_EXECUTABLE=$VcpkgInstalled\tools\pkgconf\pkgconf.exe"
     )
 
     Log-Group "Configuring ${ProductName}..."

@@ -6,7 +6,12 @@ include(buildspec_common)
 
 # _check_dependencies_windows: Set up Windows slice for _check_dependencies
 function(_check_dependencies_windows)
-  set(arch ${CMAKE_VS_PLATFORM_NAME})
+  # CMAKE_VS_PLATFORM_NAME is only set by Visual Studio generators; default to x64 for Ninja
+  if(CMAKE_VS_PLATFORM_NAME)
+    set(arch ${CMAKE_VS_PLATFORM_NAME})
+  else()
+    set(arch "x64")
+  endif()
   set(platform windows-${arch})
 
   set(dependencies_dir "${CMAKE_CURRENT_SOURCE_DIR}/.deps")

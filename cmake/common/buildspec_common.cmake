@@ -53,14 +53,23 @@ function(_setup_obs_studio)
   endif()
 
   if(OS_WINDOWS)
-    set(_cmake_generator "${CMAKE_GENERATOR}")
-    # Pass the platform without a leading space so cmake parses "-A<value>" correctly.
-    # Including a space produces " x64,..." (leading space) which VS rejects as an
-    # unknown platform.  Omit version= when unset to let cmake auto-detect the SDK.
-    if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
-      set(_cmake_arch "-A${arch},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+    # OBS Studio's cmake system requires a Visual Studio generator on Windows (-A platform flag).
+    # When the main project uses Ninja, force VS for the inner OBS deps build.
+    if(CMAKE_GENERATOR MATCHES "Ninja")
+      set(_cmake_generator "Visual Studio 17 2022")
+      if(CMAKE_SYSTEM_VERSION)
+        set(_cmake_arch "-A${arch},version=${CMAKE_SYSTEM_VERSION}")
+      else()
+        set(_cmake_arch "-A${arch}")
+      endif()
     else()
-      set(_cmake_arch "-A${arch}")
+      set(_cmake_generator "${CMAKE_GENERATOR}")
+      # Pass the platform without a leading space so cmake parses "-A<value>" correctly.
+      if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
+        set(_cmake_arch "-A${arch},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+      else()
+        set(_cmake_arch "-A${arch}")
+      endif()
     endif()
     set(_cmake_extra "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION} -DCMAKE_ENABLE_SCRIPTING=OFF")
   elseif(OS_MACOS)

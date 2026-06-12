@@ -57,7 +57,8 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "generator": "Ninja Multi-Config",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
       "warnings": {"dev": true, "deprecated": true},
       "cacheVariables": {
         "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION": "10.0.20348.0"
