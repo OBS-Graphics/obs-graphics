@@ -1,7 +1,12 @@
 #include "engine/scene.h"
 #include "shared-scene.h"
-#include <cairo/cairo.h>
 #include <obs-module.h>
+
+#ifdef __APPLE__
+#include <cairo.h>
+#else
+#include <cairo/cairo.h>
+#endif
 
 struct GraphicsSource {
     obs_source_t* source = nullptr;
@@ -156,4 +161,5 @@ struct obs_source_info gGraphicsSourceInfo = {
     .get_height = source_get_height,
     .video_tick = source_video_tick,
     .video_render = source_render,
+    .icon_type = OBS_ICON_TYPE_TEXT,
 };
