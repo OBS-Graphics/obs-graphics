@@ -72,6 +72,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install pkg-config
+        shell: pwsh
+        run: choco install pkgconfiglite -y
+
       - name: Install vcpkg dependencies
         run: vcpkg install --triplet x64-windows
 
@@ -79,6 +83,7 @@ jobs:
         shell: pwsh
         run: |
           $VcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          $env:PKG_CONFIG_PATH = "$VcpkgRoot\installed\x64-windows\lib\pkgconfig"
           cmake --preset windows-ci-x64 `
             "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake" `
             "-DVCPKG_TARGET_TRIPLET=x64-windows"
