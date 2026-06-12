@@ -30,10 +30,10 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "br.com.teknetsys.live-graphics-for-obs"
+            "bundleId": "br.com.teknetsys.obs-graphics"
         }
     },
-    "name": "live-graphics-for-obs",
+    "name": "obs-graphics",
     "displayName": "Graphics Source",
     "version": "1.0.0",
     "author": "Diego Lopes",
