@@ -23,7 +23,7 @@ jobs:
             build-essential cmake ninja-build ccache pkg-config jq \
             libgles2-mesa-dev libsimde-dev obs-studio \
             qt6-base-dev libqt6svg6-dev qt6-base-private-dev \
-            libcairo2-dev libpango1.0-dev liblua5.4-dev
+            libcairo2-dev libpango1.0-dev
 
       - name: Configure
         run: cmake --preset ubuntu-ci-x86_64
@@ -47,10 +47,9 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install ccache cmake jq xcbeautify pkgconf cairo pango lua@5.4
+          brew install ccache cmake jq xcbeautify pkgconf cairo pango
           BREW_PREFIX="$(brew --prefix)"
-          LUA54_PREFIX="$(brew --prefix lua@5.4)"
-          echo "PKG_CONFIG_PATH=${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${LUA54_PREFIX}/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Configure
         run: cmake --preset macos-ci

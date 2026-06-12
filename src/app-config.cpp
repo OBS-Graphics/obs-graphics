@@ -1,6 +1,6 @@
 #include "app-config.h"
-#include "engine/json.hpp"
 
+#include <nlohmann/json.hpp>
 #include <fstream>
 
 using json = nlohmann::json;

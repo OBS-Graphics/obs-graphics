@@ -1,7 +1,6 @@
 {
   "dependencies": [
     "cairo",
-    "pango",
-    "lua"
+    "pango"
   ]
 }
