@@ -75,14 +75,18 @@ jobs:
         shell: pwsh
         run: choco install pkgconfiglite -y
 
-      - name: Install vcpkg dependencies
-        run: vcpkg install --triplet x64-windows
+      - name: Cache vcpkg installed packages
+        uses: actions/cache@v4
+        with:
+          path: build_x64/vcpkg_installed
+          key: vcpkg-installed-x64-windows-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-installed-x64-windows-
 
       - name: Configure
         shell: pwsh
         run: |
           $VcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
-          $env:PKG_CONFIG_PATH = "$VcpkgRoot\installed\x64-windows\lib\pkgconfig"
+          $env:PKG_CONFIG_PATH = "$PWD\build_x64\vcpkg_installed\x64-windows\lib\pkgconfig"
           cmake --preset windows-ci-x64 `
             "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot\scripts\buildsystems\vcpkg.cmake" `
             "-DVCPKG_TARGET_TRIPLET=x64-windows"
