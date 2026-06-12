@@ -58,7 +58,10 @@
         "rhs": "Windows"
       },
       "generator": "Ninja Multi-Config",
-      "warnings": {"dev": true, "deprecated": true}
+      "warnings": {"dev": true, "deprecated": true},
+      "cacheVariables": {
+        "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION": "10.0.20348.0"
+      }
     },
     {
       "name": "windows-ci-x64",
@@ -66,7 +69,8 @@
       "displayName": "Windows x64 CI build",
       "description": "Build for Windows x64 on CI",
       "cacheVariables": {
-        "CMAKE_SYSTEM_VERSION": "10.0.20348.0"
+        "CMAKE_SYSTEM_VERSION": "10.0.20348.0",
+        "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION": "10.0.20348.0"
       }
     },
     {
