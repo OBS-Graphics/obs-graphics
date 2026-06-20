@@ -76,6 +76,7 @@ void GraphicsDockWidget::rebuildTable()
         for (auto& g : g_active_scene.graphics) {
             bool vis = (g.state == GraphicState::Visible || g.state == GraphicState::AnimatingIn);
             infos.push_back({g.id, vis});
+            g.dataSource = nullptr;
         }
     }
 
