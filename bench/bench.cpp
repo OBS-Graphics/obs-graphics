@@ -242,6 +242,31 @@ static std::vector<SceneDef> scene_set()
          "shadow":{"enabled":true,"offset_x":6,"offset_y":10,"blur":30,"color":[0,0,0,0.7]}}]}]})",
                  GraphicState::Visible, 0.0});
 
+    // Multiple shadowed elements in one frame (shadow-cost stress).
+    v.push_back({"shadow_multi",
+                 R"({"width":1920,"height":1080,"graphics":[{"id":"g","elements":[
+        {"id":"a","type":"rectangle","x":80,"y":80,"w":760,"h":380,"corner_radius":28,
+         "fill":[0.85,0.25,0.30,1.0],
+         "shadow":{"enabled":true,"offset_x":0,"offset_y":10,"blur":36,"color":[0,0,0,0.6]}},
+        {"id":"b","type":"rectangle","x":1040,"y":80,"w":760,"h":380,"corner_radius":0,
+         "fill":[0.20,0.55,0.85,1.0],
+         "shadow":{"enabled":true,"offset_x":8,"offset_y":8,"blur":24,"color":[0,0,0,0.7]}},
+        {"id":"c","type":"rectangle","x":80,"y":600,"w":760,"h":380,"corner_radius":60,
+         "fill":[0.30,0.75,0.40,1.0],
+         "shadow":{"enabled":true,"offset_x":0,"offset_y":18,"blur":50,"color":[0,0,0,0.5]}},
+        {"id":"d","type":"rectangle","x":1040,"y":600,"w":760,"h":380,"corner_radius":18,
+         "fill":[0.80,0.70,0.20,1.0],
+         "shadow":{"enabled":true,"offset_x":-6,"offset_y":12,"blur":40,"color":[0,0,0,0.65]}}]}]})",
+                 GraphicState::Visible, 0.0});
+
+    // Large-radius shadow — where the mesh is most expensive and an O(n) blur wins.
+    v.push_back({"shadow_large",
+                 R"({"width":1920,"height":1080,"graphics":[{"id":"g","elements":[
+        {"id":"r","type":"rectangle","x":360,"y":240,"w":1200,"h":600,"corner_radius":48,
+         "fill":[0.25,0.45,0.85,1.0],
+         "shadow":{"enabled":true,"offset_x":0,"offset_y":24,"blur":120,"color":[0,0,0,0.7]}}]}]})",
+                 GraphicState::Visible, 0.0});
+
     // Traversal stress (P4): 60 elements, interleaved z-order, masks, children.
     v.push_back({"many_elements", many_elements_json(60), GraphicState::Visible, 0.0});
 

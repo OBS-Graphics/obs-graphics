@@ -7,4 +7,6 @@ fade_mid 744fc7cd17f884e9
 children_opacity 9be13effb640b9c0
 wipe_mid 2416bd32aecd73b6
 shadow_frac b6221d928d2aeca7
+shadow_multi c2a45e77cd49e282
+shadow_large e9e0506d03f55dd8
 many_elements 43c2f1f66609fef1
