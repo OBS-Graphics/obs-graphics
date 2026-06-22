@@ -6,6 +6,7 @@
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QLabel>
+#include <QMessageBox>
 #include <QStyle>
 
 #include <filesystem>
@@ -163,13 +164,23 @@ void GraphicsDockWidget::onLoadDataSource(int graphicIndex)
         return;
 
     std::unique_ptr<IDataSource> ds;
-    if (path.endsWith(".json", Qt::CaseInsensitive))
-        ds = std::make_unique<JsonFileDataSource>(path.toStdString());
-    else if (path.endsWith(".lua", Qt::CaseInsensitive))
-        ds = std::make_unique<ScriptDataSource>(path.toStdString());
-    else
-        ds = std::make_unique<CsvFileDataSource>(path.toStdString());
-        
+    try {
+        if (path.endsWith(".json", Qt::CaseInsensitive))
+            ds = std::make_unique<JsonFileDataSource>(path.toStdString());
+        else if (path.endsWith(".lua", Qt::CaseInsensitive))
+            ds = std::make_unique<ScriptDataSource>(path.toStdString());
+        else
+            ds = std::make_unique<CsvFileDataSource>(path.toStdString());
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Failed to Load Data Source",
+                              QString("Could not load data source:\n%1").arg(e.what()));
+        return;
+    } catch (...) {
+        QMessageBox::critical(this, "Failed to Load Data Source",
+                              "Could not load data source: unknown error.");
+        return;
+    }
+
     {
         std::lock_guard<std::mutex> lock(g_scene_mutex);
         if (graphicIndex >= (int)g_active_scene.graphics.size())
