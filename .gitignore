@@ -25,6 +25,7 @@ bench/golden/*.diff.png
 !CMakePresets.json
 !LICENSE
 !README.md
+!THIRD_PARTY_LICENSES.md
 
 # Exclude lock files
 *.lock.json
