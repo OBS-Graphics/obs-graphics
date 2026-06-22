@@ -125,6 +125,38 @@ struct SceneDef {
     double timer;       // forced (only meaningful while animating)
 };
 
+// Programmatically-built stress scene: many elements with interleaved z-order,
+// mixed opacity, masks, and a few parent/child links. Exercises exactly the
+// traversal code P4 rewrites (sort + per-frame xforms + O(n^2) mask findIdx),
+// and serves as the ordering/masking regression test for that change.
+static std::string many_elements_json(int n)
+{
+    std::string j = R"({"width":1920,"height":1080,"graphics":[{"id":"g","elements":[)";
+    for (int i = 0; i < n; ++i) {
+        if (i)
+            j += ",";
+        int zo = (i * 13) % n; // interleaved, with ties -> tests stable_sort tie-break
+        double x = 60 + (i % 10) * 180;
+        double y = 60 + (i / 10) * 160;
+        double r = (i % 5) / 4.0, g = (i % 7) / 6.0, b = (i % 3) / 2.0;
+        double op = (i % 3 == 0) ? 0.6 : 1.0;
+        j += "{\"id\":\"e" + std::to_string(i) + "\",\"type\":\"rectangle\"";
+        j += ",\"x\":" + std::to_string(x) + ",\"y\":" + std::to_string(y);
+        j += ",\"w\":150,\"h\":130,\"corner_radius\":10";
+        j += ",\"z_order\":" + std::to_string(zo);
+        j += ",\"opacity\":" + std::to_string(op);
+        j += ",\"fill\":[" + std::to_string(r) + "," + std::to_string(g) + "," +
+             std::to_string(b) + ",1.0]";
+        if (i > 0 && i % 4 == 0) // ~1/4 masked -> stresses findIdx
+            j += ",\"mask\":\"e" + std::to_string(i - 1) + "\"";
+        if (i > 0 && i % 9 == 0) // a few children of e0 -> parent/child traversal
+            j += ",\"parent\":\"e0\"";
+        j += "}";
+    }
+    j += "]}]}";
+    return j;
+}
+
 static std::vector<SceneDef> scene_set()
 {
     std::vector<SceneDef> v;
@@ -199,6 +231,9 @@ static std::vector<SceneDef> scene_set()
          "shadow":{"enabled":true,"offset_x":0,"offset_y":12,"blur":40,"color":[0,0,0,0.7]},
          "anim_in":{"type":"wipe_right","easing":"linear","duration":0.5}}]}]})",
                  GraphicState::AnimatingIn, 0.25});
+
+    // Traversal stress (P4): 60 elements, interleaved z-order, masks, children.
+    v.push_back({"many_elements", many_elements_json(60), GraphicState::Visible, 0.0});
 
     return v;
 }

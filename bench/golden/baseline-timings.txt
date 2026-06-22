@@ -4,26 +4,27 @@ stride=7680 (cairo) vs format_stride_for_width=7680
 === RAW PRIMITIVE PHASES (per-frame cost in isolation) ===
 phase                                            mean      p50      p90      p99      max
 clear: CAIRO_OPERATOR_CLEAR + paint             0.000    0.000    0.000    0.000    0.000
-clear: memset                                   0.736    0.704    0.884    1.055    1.178
-upload proxy: memcpy stride*H                   0.582    0.568    0.640    0.704    0.825
-solid fill 1600x800                             0.552    0.536    0.638    0.767    0.914
-linear gradient fill 1600x800                   7.676    7.589    7.824    9.406   12.203
-push_group+pop+paint_with_alpha (1920x1080)     3.059    2.950    3.539    4.533    5.697
+clear: memset                                   0.711    0.685    0.823    0.939    1.155
+upload proxy: memcpy stride*H                   0.590    0.565    0.673    0.831    0.966
+solid fill 1600x800                             0.542    0.518    0.644    0.740    0.855
+linear gradient fill 1600x800                   7.573    7.491    7.735    8.711    9.680
+push_group+pop+paint_with_alpha (1920x1080)     2.783    2.699    3.042    4.226    4.785
 
 === TEXT: SHAPING vs RASTERIZATION ===
 phase                                            mean      p50      p90      p99      max
-text: create layout + shape (extents)           0.013    0.011    0.021    0.024    0.043
-text: show_layout only (pre-shaped)             0.114    0.107    0.136    0.173    0.219
+text: create layout + shape (extents)           0.012    0.010    0.016    0.025    0.053
+text: show_layout only (pre-shaped)             0.114    0.108    0.134    0.184    0.348
 
 === ENGINE SCENE PATH (clear + Render + flush, per canonical scene) ===
 phase                                            mean      p50      p90      p99      max
-scene: solid                                    1.559    1.487    1.835    2.317    2.748
-scene: gradient                                 8.571    8.473    8.806   10.768   12.765
-scene: shadow                                  68.948   68.236   71.795   81.520   98.496
-scene: text                                     1.325    1.283    1.501    1.740    1.885
-scene: heavy                                   76.552   75.900   79.232   85.186  113.748
-scene: fade_mid                                 6.099    5.974    6.463    7.952    8.858
-scene: children_opacity                         6.090    6.001    6.482    7.460    8.148
-scene: wipe_mid                                25.080   24.817   26.149   30.971   38.928
+scene: solid                                    1.371    1.310    1.592    1.875    1.985
+scene: gradient                                 8.515    8.418    8.797   10.043   11.160
+scene: shadow                                  67.214   66.885   68.630   74.276   78.121
+scene: text                                     1.349    1.274    1.560    2.185    2.413
+scene: heavy                                   74.578   74.208   76.230   80.234   86.438
+scene: fade_mid                                 6.009    5.932    6.275    7.172    8.615
+scene: children_opacity                         6.001    5.929    6.249    6.872    8.473
+scene: wipe_mid                                24.383   24.126   25.357   28.336   32.771
+scene: many_elements                           38.659   38.440   39.910   42.978   49.848
 
 Budget reference: 16.67 ms/frame @ 60fps, 33.33 ms @ 30fps.
