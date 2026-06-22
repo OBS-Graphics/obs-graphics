@@ -232,6 +232,16 @@ static std::vector<SceneDef> scene_set()
          "anim_in":{"type":"wipe_right","easing":"linear","duration":0.5}}]}]})",
                  GraphicState::AnimatingIn, 0.25});
 
+    // Shadow at a fractional pixel position: verifies the P1 shadow-cache keeps
+    // sub-pixel phase (cache rendered phase-correct, blitted at integer device
+    // coords) and is bit-identical to direct mesh rendering off the grid.
+    v.push_back({"shadow_frac",
+                 R"({"width":1920,"height":1080,"graphics":[{"id":"g","elements":[
+        {"id":"r","type":"rectangle","x":160.5,"y":140.25,"w":1600,"h":800,"corner_radius":24,
+         "fill":[0.2,0.4,0.9,1.0],
+         "shadow":{"enabled":true,"offset_x":6,"offset_y":10,"blur":30,"color":[0,0,0,0.7]}}]}]})",
+                 GraphicState::Visible, 0.0});
+
     // Traversal stress (P4): 60 elements, interleaved z-order, masks, children.
     v.push_back({"many_elements", many_elements_json(60), GraphicState::Visible, 0.0});
 
@@ -375,6 +385,31 @@ static int run_timing()
             g.timer = sd.timer;
         }
         Stats s = bench("scene: " + sd.name, ITERS, [&]() {
+            cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+            cairo_paint(cr);
+            cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+            scene.Render(cr);
+            cairo_surface_flush(surf);
+        });
+        print_stats(s);
+    }
+
+    // Worst case for the P1 shadow cache: an actively-animating wipe whose
+    // shadow box changes every frame (Tick advances timer, long duration keeps
+    // it animating) -> cache misses every frame. Characterises any regression
+    // the cache introduces for animated shadows vs direct mesh rendering.
+    print_header("ANIMATED SHADOW (Tick-driven, cache worst case)");
+    {
+        const char* wipeJson = R"({"width":1920,"height":1080,"graphics":[{"id":"g","elements":[
+        {"id":"r","type":"rectangle","x":160,"y":140,"w":1600,"h":800,"corner_radius":40,
+         "fill":[0.2,0.4,0.9,1.0],
+         "shadow":{"enabled":true,"offset_x":0,"offset_y":12,"blur":40,"color":[0,0,0,0.7]},
+         "anim_in":{"type":"wipe_right","easing":"linear","duration":1000.0}}]}]})";
+        Scene scene = Scene::LoadString(wipeJson);
+        for (auto& g : scene.graphics)
+            g.state = GraphicState::AnimatingIn;
+        Stats s = bench("wipe shadow animating (per-frame Tick)", ITERS, [&]() {
+            scene.Tick(1.0f / 60.0f);
             cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
             cairo_paint(cr);
             cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
