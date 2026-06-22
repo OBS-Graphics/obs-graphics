@@ -4,34 +4,34 @@ stride=7680 (cairo) vs format_stride_for_width=7680
 === RAW PRIMITIVE PHASES (per-frame cost in isolation) ===
 phase                                            mean      p50      p90      p99      max
 clear: CAIRO_OPERATOR_CLEAR + paint             0.000    0.000    0.000    0.000    0.000
-clear: memset                                   0.735    0.695    0.875    1.104    1.195
-upload proxy: memcpy stride*H                   0.632    0.611    0.743    0.872    0.951
-solid fill 1600x800                             0.536    0.516    0.613    0.779    0.862
-linear gradient fill 1600x800                   7.636    7.532    7.996    8.674    9.378
-push_group+pop+paint_with_alpha (1920x1080)     2.784    2.697    3.087    3.457    3.655
+clear: memset                                   0.853    0.826    1.052    1.294    1.383
+upload proxy: memcpy stride*H                   0.676    0.651    0.815    0.974    1.253
+solid fill 1600x800                             0.625    0.589    0.793    0.957    1.040
+linear gradient fill 1600x800                   8.164    7.939    8.760   12.397   12.961
+push_group+pop+paint_with_alpha (1920x1080)     3.132    3.014    3.653    4.436    5.513
 
 === TEXT: SHAPING vs RASTERIZATION ===
 phase                                            mean      p50      p90      p99      max
-text: create layout + shape (extents)           0.011    0.011    0.016    0.017    0.026
-text: show_layout only (pre-shaped)             0.110    0.107    0.114    0.163    0.191
+text: create layout + shape (extents)           0.013    0.011    0.016    0.028    0.035
+text: show_layout only (pre-shaped)             0.117    0.111    0.127    0.211    0.252
 
 === ENGINE SCENE PATH (clear + Render + flush, per canonical scene) ===
 phase                                            mean      p50      p90      p99      max
-scene: solid                                    1.487    1.398    1.928    2.297    2.574
-scene: gradient                                 8.474    8.402    8.697    9.620   11.498
-scene: shadow                                   2.196    2.139    2.419    2.678    3.042
-scene: text                                     1.295    1.252    1.477    1.614    1.820
-scene: heavy                                    9.950    9.822   10.387   11.668   14.911
-scene: fade_mid                                 5.928    5.856    6.165    6.770    8.032
-scene: children_opacity                         5.998    5.913    6.359    6.941    8.298
-scene: wipe_mid                                 1.687    1.605    1.921    2.674    3.400
-scene: shadow_frac                              2.226    2.164    2.498    2.792    2.917
-scene: shadow_multi                             2.801    2.698    3.227    3.795    4.130
-scene: shadow_large                             2.051    1.991    2.274    2.569    2.893
-scene: many_elements                           39.512   39.162   41.387   47.066   56.424
+scene: solid                                    1.516    1.469    1.799    2.143    2.625
+scene: gradient                                 8.986    8.824    9.647   10.760   13.004
+scene: shadow                                  16.372   14.858   17.628   50.617   59.873
+scene: text                                     6.375    5.538   11.488   19.670   55.730
+scene: heavy                                   36.549   30.628   70.726  116.136  135.916
+scene: fade_mid                                 6.351    6.273    6.769    7.751    8.482
+scene: children_opacity                         6.408    6.293    7.027    7.938    8.442
+scene: wipe_mid                                 8.843    8.724    9.461   10.315   11.529
+scene: shadow_frac                             25.207   24.969   26.074   29.206   32.280
+scene: shadow_multi                            19.038   18.754   20.196   23.982   32.957
+scene: shadow_large                            18.686   18.420   19.657   22.954   29.428
+scene: many_elements                           42.424   41.948   44.696   54.270   63.172
 
 === ANIMATED SHADOW (Tick-driven, cache worst case) ===
 phase                                            mean      p50      p90      p99      max
-wipe shadow animating (per-frame Tick)         14.897   14.669   15.334   21.026   26.040
+wipe shadow animating (per-frame Tick)          2.739    2.655    3.074    3.637    3.892
 
 Budget reference: 16.67 ms/frame @ 60fps, 33.33 ms @ 30fps.
