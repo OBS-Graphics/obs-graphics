@@ -198,3 +198,65 @@ CLEAR is already ~free and memset is slower.
   surface per shadowed/cached item).
 - Keep the `bench/` harness out of the plugin/CI build (it is a separate out-of-tree
   CMake project) and re-run it after each change to confirm the predicted gains.
+
+---
+
+## Addendum — Drop-shadow box-blur work (status + saved follow-ups)
+
+The drop shadow was reworked away from the mesh approach. Current engine state and the
+remaining, **not-yet-implemented** chunks are recorded here for a future session.
+
+### Done
+- **P1 (engine `6d28715`, superseded):** cached the *mesh* shadow rasterization to an
+  offscreen surface (bit-identical). Hid the cost for static shadows but animated
+  shadows still missed the cache every frame (~14.7 ms).
+- **Box-blur swap — Chunk 1 (engine `c972c36`, current):** drop shadow is now a 3×
+  separable running-sum **box-blur (≈Gaussian)** of the element shape on an **A8**
+  surface, composited via `cairo_mask_surface()`. O(pixels), radius-independent.
+  Inner loop tuned: fixed-point **reciprocal multiply** (no per-pixel division) and a
+  **row-sequential per-column running sum** for the vertical pass. Rendered **per-frame
+  (no cache)**. `sigma = shadow.blur`; A8 padded by `sum(box radii)+1` per side; running
+  sum `uint32` with clamp-to-edge. Code: `RenderDropShadow` / `BoxBlurH` / `BoxBlurV` /
+  `GaussBoxRadii` / `BlurRecip` in `engine/element.cpp`. The look changed (smoother
+  Gaussian vs the old boxy linear ring) and was **approved**; the 6 shadow goldens were
+  re-baselined.
+
+### Measured (bench `p50`, post-Chunk-1, per-frame box-blur, no cache)
+- animated wipe shadow **2.7 ms** (was 14.7 ms with the mesh) — the motivating win.
+- static full-size shadow **14.6 ms** per-frame (under the 60fps budget even uncached).
+- `shadow_large` (blur 120) **18.4 ms**; `shadow_multi` 18.5 ms.
+
+### Saved follow-ups (implement in order, one per chunk, gated by the harness)
+
+**Chunk 2 — Cache the blurred A8 (static shadows → one mask paint).**
+Cache the post-blur A8 surface keyed on `{sw, sh, blur, cornerR, r, g, b, a, frac(sx),
+frac(sy)}`; re-blur only on key change, otherwise just `cairo_mask_surface()` the cached
+A8. Sub-pixel phase (`frac(sx/sy)`) must be in the key because the shape is rasterized
+into the A8 at a fractional offset — including it makes the cache **pixel-identical** to
+the per-frame path (zero-diff gate). Static shadows collapse from ~14.6 ms to ~1 ms;
+animated shadows (key changes each frame) are unaffected. Low risk. One ARGB32/A8 surface
+per shadowed element; free on key change/destroy.
+
+**Chunk 3 — Downsample for large radii (CHANGES OUTPUT → needs approval).**
+Above a radius threshold (e.g. `blur > 32`), render the shadow source at 1/2 or 1/4 res,
+blur with a proportionally smaller radius, and upscale (bilinear) at composite. Cuts the
+blur pixel count 4–16×: `shadow_large` ~18 ms → ~3–5 ms. Approval-gated visual change
+(downsampling softens slightly — usually imperceptible for big blurs). Gate strictly
+behind the threshold so small/sharp shadows keep the exact path. Watch the upscale filter
+at the A8 edges (clamp/extend to avoid a faint seam).
+
+**Chunk 4 — 9-slice rounded-rect shadows (only if measurements justify).**
+A rounded-rect's blurred shadow is separable: blur **one corner tile + one horizontal +
+one vertical edge strip**, then tile/stretch the 9 regions (4 corners, 4 edges, solid
+center) onto the destination. Turns O(area) blur into O(corner + edge). Biggest win for
+large solid shapes. High complexity (slice bookkeeping, seam-free tiling, asymmetric
+corner radii); only pursue if Chunk 2+3 leave a measured gap. Pixel-near-identical for
+uniform-corner rects; verify seams against goldens.
+
+### Constraints carried forward
+- Preserve the CPU-buffer → `gs_texture` handoff (`graphics-source.cpp:117-134`) and
+  cross-platform builds; all shadow code is portable Cairo in `engine/element.cpp`.
+- Engine changes go in the working clone `~/Projects/obs-graphics-engine`, pushed, then
+  the `engine/` submodule pointer bumped here.
+- Gate every chunk with `bench/` golden checks; caching/refactor chunks must be
+  pixel-identical, output-changing chunks (downsample) need explicit approval.
