@@ -23,8 +23,14 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Pull in the engine target (and its CPM dependencies) from the submodule.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../engine ${CMAKE_BINARY_DIR}/engine-build)
+# Pull in the engine target (and its CPM dependencies). Defaults to the engine/
+# submodule, but ENGINE_DIR can point at a working clone (e.g. the canonical
+# ~/Projects/obs-graphics-engine) to validate a change BEFORE it is pushed.
+set(ENGINE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../engine" CACHE PATH "Path to engine sources")
+add_subdirectory(${ENGINE_DIR} ${CMAKE_BINARY_DIR}/engine-build)
 
 add_executable(obs-graphics-bench bench.cpp)
 target_link_libraries(obs-graphics-bench PRIVATE engine)
+# Include engine headers directly (works whether ENGINE_DIR is the `engine`
+# submodule or a differently-named working clone like obs-graphics-engine).
+target_include_directories(obs-graphics-bench PRIVATE ${ENGINE_DIR})

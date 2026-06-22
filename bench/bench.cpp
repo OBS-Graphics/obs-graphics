@@ -26,9 +26,9 @@
 //   ./build-bench/obs-graphics-bench check  bench/golden
 // =============================================================================
 
-#include "engine/scene.h"
-#include "engine/graphic.h"
-#include "engine/element.h"
+#include "scene.h"
+#include "graphic.h"
+#include "element.h"
 
 #ifdef __APPLE__
 #include <cairo.h>
