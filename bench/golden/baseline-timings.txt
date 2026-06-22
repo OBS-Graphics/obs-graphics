@@ -1,0 +1,29 @@
+obs-graphics benchmark — 1920x1080 ARGB32, 600 frames/phase
+stride=7680 (cairo) vs format_stride_for_width=7680
+
+=== RAW PRIMITIVE PHASES (per-frame cost in isolation) ===
+phase                                            mean      p50      p90      p99      max
+clear: CAIRO_OPERATOR_CLEAR + paint             0.000    0.000    0.000    0.000    0.000
+clear: memset                                   0.723    0.697    0.835    0.954    1.113
+upload proxy: memcpy stride*H                   0.598    0.584    0.664    0.748    0.812
+solid fill 1600x800                             0.589    0.582    0.691    0.817    0.866
+linear gradient fill 1600x800                   7.671    7.581    7.946    9.075   11.797
+push_group+pop+paint_with_alpha (1920x1080)     2.894    2.789    3.237    4.497    4.708
+
+=== TEXT: SHAPING vs RASTERIZATION ===
+phase                                            mean      p50      p90      p99      max
+text: create layout + shape (extents)           0.011    0.011    0.015    0.016    0.023
+text: show_layout only (pre-shaped)             0.108    0.106    0.112    0.148    0.176
+
+=== ENGINE SCENE PATH (clear + Render + flush, per canonical scene) ===
+phase                                            mean      p50      p90      p99      max
+scene: solid                                    3.179    3.100    3.584    4.106    4.487
+scene: gradient                                10.260   10.116   10.796   12.100   15.093
+scene: shadow                                  69.227   68.919   71.028   77.479   89.584
+scene: text                                     3.171    3.071    3.633    4.175    4.592
+scene: heavy                                   79.548   78.444   81.964  102.877  126.354
+scene: fade_mid                                 6.091    5.995    6.451    7.631    8.549
+scene: children_opacity                        15.013   14.927   15.444   16.439   19.774
+scene: wipe_mid                                24.786   24.612   25.550   28.526   30.921
+
+Budget reference: 16.67 ms/frame @ 60fps, 33.33 ms @ 30fps.

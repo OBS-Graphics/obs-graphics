@@ -1,0 +1,8 @@
+solid 3b78f27b4fbe83e9
+gradient dd27807a6eeb2623
+shadow f81d58169873f7ad
+text 4971994a06522cf0
+heavy 9dabb226c98f1e21
+fade_mid 744fc7cd17f884e9
+children_opacity 591822f998f069df
+wipe_mid 2416bd32aecd73b6
