@@ -106,8 +106,8 @@ jobs:
 
           local product_name
           local product_version
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          product_name="$(jq -r '.name' buildspec.json)"
+          product_version="$(git describe --tags --match '[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || jq -r '.version' buildspec.json)"
 
           print "pluginName=${product_name}" >> $GITHUB_OUTPUT
           print "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
@@ -197,8 +197,8 @@ jobs:
           : Set Up Environment 🔧
           if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
 
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          product_name="$(jq -r '.name' buildspec.json)"
+          product_version="$(git describe --tags --match '[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null || jq -r '.version' buildspec.json)"
 
           echo "pluginName=${product_name}" >> $GITHUB_OUTPUT
           echo "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
@@ -272,7 +272,8 @@ jobs:
 
           $BuildSpec = Get-Content -Path buildspec.json -Raw | ConvertFrom-Json
           $ProductName = $BuildSpec.name
-          $ProductVersion = $BuildSpec.version
+          $ProductVersion = (git describe --tags --match "[0-9]*.[0-9]*.[0-9]*" --abbrev=0 2>$null)
+          if (-not $ProductVersion) { $ProductVersion = $BuildSpec.version }
 
           "pluginName=${ProductName}" >> $env:GITHUB_OUTPUT
           "pluginVersion=${ProductVersion}" >> $env:GITHUB_OUTPUT

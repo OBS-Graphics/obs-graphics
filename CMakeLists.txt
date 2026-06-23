@@ -3,7 +3,23 @@ cmake_minimum_required(VERSION 3.28...3.30)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake")
 
-project(obs-graphics VERSION 1.0.0)
+find_package(Git QUIET)
+if(GIT_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tags --match "[0-9]*.[0-9]*.[0-9]*" --abbrev=0
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE _git_tag_version
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  string(REGEX REPLACE "^v" "" _git_tag_version "${_git_tag_version}")
+  string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" _git_tag_version "${_git_tag_version}")
+endif()
+if(NOT _git_tag_version)
+  set(_git_tag_version "1.0.0")
+endif()
+
+project(obs-graphics VERSION ${_git_tag_version})
 
 include(compilerconfig)
 include(defaults)
