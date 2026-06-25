@@ -179,5 +179,5 @@ struct obs_source_info gGraphicsSourceInfo = {
     .get_height = source_get_height,
     .video_tick = source_video_tick,
     .video_render = source_render,
-    .icon_type = OBS_ICON_TYPE_TEXT,
+    .icon_type = OBS_ICON_TYPE_CUSTOM,
 };
