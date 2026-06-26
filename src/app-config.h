@@ -20,16 +20,22 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 struct DataSourceEntry {
     std::string path;
     std::string type; // "json", "csv", or "lua"
 };
 
-struct AppConfig {
+struct SceneConfig {
     std::string scenePath;
     std::unordered_map<std::string, DataSourceEntry> dataSources; // graphic id → entry
     std::unordered_map<std::string, int> selectedRecords;         // graphic id → index
+};
+
+struct AppConfig {
+    std::vector<SceneConfig> scenes;
+    int activeTabIndex = 0;
 
     static AppConfig Load(const std::string& configPath);
     void Save(const std::string& configPath) const;

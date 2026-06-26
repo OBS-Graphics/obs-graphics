@@ -16,7 +16,12 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "shared-scene.h"
+#pragma once
 
-std::vector<std::shared_ptr<SceneSlot>> g_scene_slots;
-std::atomic<std::shared_ptr<SceneSlot>> g_active_slot;
+#include <QIcon>
+#include <oclero/qlementine/icons/Icons16.hpp>
+
+using namespace oclero::qlementine::icons;
+
+void initIcons();
+QIcon themedIcon(Icons16 id);

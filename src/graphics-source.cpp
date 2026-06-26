@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "engine/scene.h"
 #include "shared-scene.h"
 #include <obs-module.h>
 
@@ -72,14 +71,7 @@ static void* source_create(obs_data_t*, obs_source_t* source)
         s->height = 1080;
     }
 
-    {
-        std::lock_guard<std::mutex> lock(g_scene_mutex);
-        g_active_scene.width = (int)s->width;
-        g_active_scene.height = (int)s->height;
-    }
-
     rebuild_cairo_surface(s);
-
     return s;
 }
 
@@ -109,20 +101,23 @@ static void source_video_tick(void* data, float seconds)
         s->needs_texture_reset = true;
     }
 
-    std::lock_guard<std::mutex> lock(g_scene_mutex);
-
-    if (!g_scene_loaded)
+    // Atomically grab the active slot; bumps refcount so the slot survives
+    // even if a tab is closed concurrently on the UI thread.
+    auto slot = g_active_slot.load();
+    if (!slot || !slot->loaded.load())
         return;
 
-    g_active_scene.width = (int)s->width;
-    g_active_scene.height = (int)s->height;
+    std::lock_guard<std::mutex> lock(slot->mutex);
 
-    g_active_scene.Tick(seconds);
+    slot->scene.width = (int)s->width;
+    slot->scene.height = (int)s->height;
+
+    slot->scene.Tick(seconds);
 
     cairo_set_operator(s->cr, CAIRO_OPERATOR_CLEAR);
     cairo_paint(s->cr);
     cairo_set_operator(s->cr, CAIRO_OPERATOR_OVER);
-    g_active_scene.Render(s->cr);
+    slot->scene.Render(s->cr);
     cairo_surface_flush(s->surface);
 }
 
@@ -155,15 +150,21 @@ static void source_render(void* data, gs_effect_t*)
 static uint32_t source_get_width(void* data)
 {
     auto* s = static_cast<GraphicsSource*>(data);
-    std::lock_guard<std::mutex> lock(g_scene_mutex);
-    return g_scene_loaded ? (uint32_t)g_active_scene.width : s->width;
+    auto slot = g_active_slot.load();
+    if (!slot || !slot->loaded.load())
+        return s->width;
+    std::lock_guard<std::mutex> lock(slot->mutex);
+    return (uint32_t)slot->scene.width;
 }
 
 static uint32_t source_get_height(void* data)
 {
     auto* s = static_cast<GraphicsSource*>(data);
-    std::lock_guard<std::mutex> lock(g_scene_mutex);
-    return g_scene_loaded ? (uint32_t)g_active_scene.height : s->height;
+    auto slot = g_active_slot.load();
+    if (!slot || !slot->loaded.load())
+        return s->height;
+    std::lock_guard<std::mutex> lock(slot->mutex);
+    return (uint32_t)slot->scene.height;
 }
 
 // ── Registration ─────────────────────────────────────────────────────────────

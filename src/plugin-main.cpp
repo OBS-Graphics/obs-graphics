@@ -17,6 +17,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 
 #include "graphics-dock.h"
+#include "icons.h"
 #include <obs-frontend-api.h>
 #include <obs-module.h>
 #include <plugin-support.h>
@@ -33,6 +34,8 @@ bool obs_module_load(void)
 {
     obs_register_source(&gGraphicsSourceInfo);
 
+    initIcons();
+
     auto* mainWin = static_cast<QWidget*>(obs_frontend_get_main_window());
 
     char* cfgRaw = obs_module_config_path("config.json");
@@ -41,7 +44,7 @@ bool obs_module_load(void)
     std::filesystem::create_directories(std::filesystem::path(configPath).parent_path());
 
     auto* dock = new GraphicsDockWidget(mainWin, std::move(configPath));
-    obs_frontend_add_dock_by_id("obs-graphics-dock", "Graphics", dock);
+    obs_frontend_add_dock_by_id("obs-graphics-dock", "Live Graphics Scenes", dock);
 
     obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
     return true;

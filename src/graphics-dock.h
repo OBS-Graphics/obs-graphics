@@ -18,11 +18,14 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "app-config.h"
+#include "data-source-dialog.h"
 #include "engine/data-source.h"
+#include "shared-scene.h"
 
-#include <QComboBox>
-#include <QHBoxLayout>
-#include <QPushButton>
+#include <QMap>
+#include <QStackedWidget>
+#include <QTabWidget>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -31,29 +34,56 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
 
+// Per-scene tab content: shows the graphics list for one loaded scene.
+class ScenePageWidget : public QWidget {
+    Q_OBJECT
+public:
+    explicit ScenePageWidget(std::shared_ptr<SceneSlot> slot, QWidget* parent = nullptr);
+    ~ScenePageWidget() override;
+
+    std::shared_ptr<SceneSlot> slot() const { return m_slot; }
+    SceneConfig toConfig() const;
+    void restoreFromConfig(const SceneConfig& cfg);
+
+signals:
+    void configChanged();
+
+private slots:
+    void onToggleGraphic(int index);
+    void onOpenDataSourceDialog(int index);
+    void onLoadRequested(int index, const QString& path);
+    void onRecordSelected(int index, int recordIndex);
+
+private:
+    void rebuildTable();
+    QWidget* buildActionCell(int graphicIndex, bool isVisible);
+
+    std::shared_ptr<SceneSlot> m_slot;
+    QTableWidget* m_table{nullptr};
+    std::vector<std::unique_ptr<IDataSource>> m_dataSources;
+    QMap<int, DataSourceDialog*> m_openDialogs;
+};
+
+// Top-level dock widget: tab container with one ScenePageWidget per loaded scene.
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
     explicit GraphicsDockWidget(QWidget* parent, std::string configPath);
 
 private slots:
-    void onLoadClicked();
-    void onToggleGraphic(int graphicIndex);
+    void onAddTabClicked();
+    void onTabCloseRequested(int index);
+    void onTabChanged(int index);
+    void onChildConfigChanged();
 
 private:
-    void rebuildTable();
-    void rebuildDataSourceCell(int row, int graphicIndex);
-    void onLoadDataSource(int graphicIndex);
-    void onRemoveDataSource(int graphicIndex);
+    void addSceneTab(std::shared_ptr<SceneSlot> slot);
+    void updateEmptyState();
     void saveConfig();
     void loadConfig();
 
-    QPushButton* m_loadBtn;
-    QTableWidget* m_table;
-
-    std::vector<std::unique_ptr<IDataSource>> m_dataSources;
-
+    QStackedWidget* m_stack{nullptr};
+    QTabWidget* m_tabs{nullptr};
     std::string m_configPath;
-    std::string m_scenePath;
     bool m_loading{false};
 };

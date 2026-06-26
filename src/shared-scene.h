@@ -19,8 +19,27 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "engine/scene.h"
+#include <atomic>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
-extern std::mutex g_scene_mutex;
-extern Scene g_active_scene;
-extern bool g_scene_loaded;
+struct SceneSlot {
+    Scene scene;
+    std::mutex mutex;
+    std::atomic<bool> loaded{false};
+    std::string path;
+
+    SceneSlot() = default;
+    SceneSlot(const SceneSlot&) = delete;
+    SceneSlot& operator=(const SceneSlot&) = delete;
+};
+
+// Owned exclusively by the Qt UI thread
+extern std::vector<std::shared_ptr<SceneSlot>> g_scene_slots;
+
+// Read atomically by the render thread each frame; written by the UI thread on tab changes.
+// The atomic shared_ptr ensures the slot stays alive for the duration of any in-flight tick
+// even when a tab is closed concurrently.
+extern std::atomic<std::shared_ptr<SceneSlot>> g_active_slot;

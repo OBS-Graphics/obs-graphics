@@ -18,25 +18,14 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include "app-config.h"
 
-#include <nlohmann/json.hpp>
 #include <fstream>
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
-AppConfig AppConfig::Load(const std::string& configPath)
+static SceneConfig sceneConfigFromJson(const json& j)
 {
-    AppConfig cfg;
-    std::ifstream f(configPath);
-    if (!f.is_open())
-        return cfg;
-
-    json j;
-    try {
-        f >> j;
-    } catch (...) {
-        return cfg;
-    }
-
+    SceneConfig cfg;
     cfg.scenePath = j.value("scene_path", "");
 
     if (j.contains("data_sources") && j["data_sources"].is_object()) {
@@ -57,20 +46,70 @@ AppConfig AppConfig::Load(const std::string& configPath)
     return cfg;
 }
 
-void AppConfig::Save(const std::string& configPath) const
+static json sceneConfigToJson(const SceneConfig& cfg)
 {
     json j;
-    j["scene_path"] = scenePath;
+    j["scene_path"] = cfg.scenePath;
 
     json dsj = json::object();
-    for (auto& [id, ds] : dataSources)
+    for (auto& [id, ds] : cfg.dataSources)
         dsj[id] = {{"path", ds.path}, {"type", ds.type}};
     j["data_sources"] = dsj;
 
     json recj = json::object();
-    for (auto& [id, idx] : selectedRecords)
+    for (auto& [id, idx] : cfg.selectedRecords)
         recj[id] = idx;
     j["selected_records"] = recj;
+
+    return j;
+}
+
+AppConfig AppConfig::Load(const std::string& configPath)
+{
+    AppConfig cfg;
+    std::ifstream f(configPath);
+    if (!f.is_open())
+        return cfg;
+
+    json j;
+    try {
+        f >> j;
+    } catch (...) {
+        return cfg;
+    }
+
+    // v1 migration: single scene_path at root → wrap as scenes[0]
+    if (j.contains("scene_path")) {
+        cfg.scenes.push_back(sceneConfigFromJson(j));
+        cfg.activeTabIndex = 0;
+        return cfg;
+    }
+
+    cfg.activeTabIndex = j.value("active_tab", 0);
+
+    if (j.contains("scenes") && j["scenes"].is_array()) {
+        for (auto& sj : j["scenes"]) {
+            if (sj.is_object())
+                cfg.scenes.push_back(sceneConfigFromJson(sj));
+        }
+    }
+
+    if (cfg.activeTabIndex >= (int)cfg.scenes.size())
+        cfg.activeTabIndex = 0;
+
+    return cfg;
+}
+
+void AppConfig::Save(const std::string& configPath) const
+{
+    json j;
+    j["version"] = 2;
+    j["active_tab"] = activeTabIndex;
+
+    json scenesArr = json::array();
+    for (auto& sc : scenes)
+        scenesArr.push_back(sceneConfigToJson(sc));
+    j["scenes"] = scenesArr;
 
     std::ofstream f(configPath);
     f << j.dump(4);
