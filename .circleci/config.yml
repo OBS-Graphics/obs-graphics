@@ -1,31 +1,326 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
-jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
+# ─────────────────────────────────────────────
+# Orbs
+# ─────────────────────────────────────────────
+orbs:
+  windows: circleci/windows@6.0
 
-    # Add steps to the job
-    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
+# ─────────────────────────────────────────────
+# Reusable parameters
+# ─────────────────────────────────────────────
+parameters:
+  build-type:
+    type: enum
+    enum: [Release, Debug]
+    default: Release
+  vcpkg-commit:
+    type: string
+    default: "a34c873a9717a888f58dc05268dea15592c2f822"  # pin to a stable commit
+
+# ─────────────────────────────────────────────
+# Reusable commands
+# ─────────────────────────────────────────────
+commands:
+  # Resolves Release vs RelWithDebInfo from the git tag and writes it to
+  # $BASH_ENV (Unix) so subsequent steps can read $BUILD_CONFIG.
+  resolve-build-config-unix:
     steps:
-      # Checkout the code as the first step.
+      - run:
+          name: Resolve build config
+          command: |
+            if [[ "${CIRCLE_TAG:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta).+)?$ ]]; then
+              echo 'export BUILD_CONFIG=Release' >> "$BASH_ENV"
+            else
+              echo 'export BUILD_CONFIG=RelWithDebInfo' >> "$BASH_ENV"
+            fi
+
+# ─────────────────────────────────────────────
+# Jobs
+# ─────────────────────────────────────────────
+jobs:
+
+  # ── Linux / Ubuntu x86_64 ─────────────────────
+  build-linux:
+    machine:
+      image: ubuntu-2404:current
+    environment:
+      CCACHE_DIR: ~/.ccache
+      CCACHE_MAXSIZE: 500M
+    steps:
       - checkout
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: Checkout submodules
+          command: git submodule update --init --recursive
+      - resolve-build-config-unix
+      - restore_cache:
+          keys:
+            - linux-ccache-{{ .Branch }}-{{ .Revision }}
+            - linux-ccache-{{ .Branch }}-
+            - linux-ccache-
+      - run:
+          name: Install dependencies
+          command: |
+            sudo add-apt-repository -y ppa:obsproject/obs-studio
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends \
+              cmake ninja-build pkg-config ccache gh \
+              obs-studio libobs-dev \
+              qt6-base-dev libqt6svg6-dev qt6-tools-dev qt6-tools-dev-tools \
+              libcairo2-dev libpango1.0-dev \
+              dpkg-dev
+      - run:
+          name: CMake configure
+          command: |
+            cmake -S . -B build \
+              -G Ninja \
+              -DCMAKE_BUILD_TYPE="${BUILD_CONFIG}" \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - run:
+          name: Build
+          command: cmake --build build --parallel
+      - run:
+          name: Package
+          command: cd build && cpack && cpack --config CPackSourceConfig.cmake
+      - run:
+          name: ccache stats
+          command: ccache --show-stats
+          when: always
+      - store_artifacts:
+          path: release
+          destination: linux-x86_64
+      - save_cache:
+          key: linux-ccache-{{ .Branch }}-{{ .Revision }}
+          paths: [~/.ccache]
+          when: on_success
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
+  # ── macOS universal (arm64 + x86_64) ──────────
+  build-macos:
+    macos:
+      xcode: "16.1.0"
+    resource_class: macos.m1.large.gen1
+    environment:
+      CCACHE_DIR: ~/.ccache
+      CCACHE_MAXSIZE: 500M
+    steps:
+      - checkout
+      - run:
+          name: Checkout submodules
+          command: git submodule update --init --recursive
+      - resolve-build-config-unix
+      - restore_cache:
+          keys:
+            - macos-deps-{{ checksum "buildspec.json" }}
+            - macos-deps-
+      - restore_cache:
+          keys:
+            - macos-ccache-{{ .Branch }}-{{ .Revision }}
+            - macos-ccache-{{ .Branch }}-
+            - macos-ccache-
+      - run:
+          name: Install build tools
+          command: brew install cmake ninja ccache
+      - run:
+          name: CMake configure
+          command: |
+            cmake -S . -B build \
+              -G Ninja \
+              -DCMAKE_BUILD_TYPE="${BUILD_CONFIG}" \
+              -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - run:
+          name: Build
+          command: cmake --build build --parallel
+      - run:
+          name: Package
+          command: cd build && cpack
+      - run:
+          name: ccache stats
+          command: ccache --show-stats
+          when: always
+      - store_artifacts:
+          path: release
+          destination: macos-universal
+      - save_cache:
+          key: macos-deps-{{ checksum "buildspec.json" }}
+          paths: [.deps]
+          when: on_success
+      - save_cache:
+          key: macos-ccache-{{ .Branch }}-{{ .Revision }}
+          paths: [~/.ccache]
+          when: on_success
+
+  # ── Windows x64 / MSVC ────────────────────────
+  build-windows:
+    executor:
+      name: windows/default
+      size: medium
+      shell: powershell.exe
+    environment:
+      SCCACHE_DIR: C:\sccache
+    steps:
+      - checkout
+      - run:
+          name: Checkout submodules
+          shell: bash.exe
+          command: git submodule update --init --recursive
+      - restore_cache:
+          keys:
+            - windows-deps-{{ checksum "buildspec.json" }}
+            - windows-deps-
+      - restore_cache:
+          keys:
+            - windows-sccache-{{ arch }}-{{ .Branch }}-{{ .Revision }}
+            - windows-sccache-{{ arch }}-{{ .Branch }}-
+            - windows-sccache-{{ arch }}-
+      - run:
+          name: Install build tools
+          command: |
+            choco install cmake sccache -y --no-progress
+            $env:PATH += ";C:\Program Files\CMake\bin"
+            [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
+            sccache --version
+            sccache --zero-stats
+      - run:
+          # Resolves Release vs RelWithDebInfo from the git tag and writes it to
+          # $GITHUB_ENV-style machine env so subsequent steps can read $env:BUILD_CONFIG.
+          name: Resolve build config
+          command: |
+            $config = if ($env:CIRCLE_TAG -match '^\d+\.\d+\.\d+(-(rc|beta).+)?$') { "Release" } else { "RelWithDebInfo" }
+            [Environment]::SetEnvironmentVariable("BUILD_CONFIG", $config, "Machine")
+            Write-Host "BUILD_CONFIG=$config"
+      - run:
+          name: CMake configure
+          command: |
+            cmake -S . -B build_x64 `
+              -G "Visual Studio 17 2022" -A x64 `
+              -DCMAKE_BUILD_TYPE="$env:BUILD_CONFIG" `
+              -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      - run:
+          name: Build
+          command: cmake --build build_x64 --config "$env:BUILD_CONFIG" --parallel
+      - run:
+          name: Package
+          command: |
+            Push-Location build_x64
+            cpack -C "$env:BUILD_CONFIG"
+            Pop-Location
+      - run:
+          name: sccache stats
+          command: sccache --show-stats
+          when: always
+      - store_artifacts:
+          path: release
+          destination: windows-x64
+      - save_cache:
+          key: windows-deps-{{ checksum "buildspec.json" }}
+          paths: [.deps]
+          when: on_success
+      - save_cache:
+          key: windows-sccache-{{ arch }}-{{ .Branch }}-{{ .Revision }}
+          paths: [C:\sccache]
+          when: on_success
+
+  # ── GitHub release (tag builds only) ──────────
+  create-release:
+    machine:
+      image: ubuntu-2404:current
+    steps:
+      - checkout
+      - run:
+          name: Validate release tag
+          command: |
+            if [[ ! "${CIRCLE_TAG:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(rc|beta).+)?$ ]]; then
+              echo "Not a versioned release tag — skipping"
+              circleci step halt
+            fi
+      - run:
+          name: Install gh CLI
+          command: sudo apt-get install -y gh
+      - run:
+          name: Download build artifacts
+          command: |
+            mkdir -p artifacts
+            curl -sSf -H "Circle-Token: ${CIRCLE_TOKEN}" \
+              "https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/artifact" \
+              | jq -r '.items[] | .url' \
+              | xargs -P4 -I{} wget -q --content-disposition -P artifacts/ {}
+      - run:
+          name: Flatten and generate checksums
+          command: |
+            shopt -s globstar nullglob
+            for f in artifacts/**/*.{zip,pkg,deb,ddeb,tar.xz}; do mv "$f" .; done
+            echo "### Checksums" > CHECKSUMS.txt
+            for f in *.{deb,ddeb,pkg,tar.xz,zip}; do
+              [[ -f "$f" ]] && echo "    ${f}: $(sha256sum "$f" | cut -d' ' -f1)" >> CHECKSUMS.txt
+            done
+      - run:
+          name: Create GitHub release
+          command: |
+            plugin_name="$(jq -r '.displayName // .name' buildspec.json)"
+            prerelease=""
+            [[ "${CIRCLE_TAG}" =~ -(rc|beta) ]] && prerelease="--prerelease"
+            shopt -s nullglob
+            gh release create "${CIRCLE_TAG}" \
+              --draft ${prerelease} \
+              --title "${plugin_name} ${CIRCLE_TAG}" \
+              --notes-file CHECKSUMS.txt \
+              *.{zip,pkg,deb,ddeb,tar.xz}
+
+# ─────────────────────────────────────────────
+# Workflows
+# ─────────────────────────────────────────────
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  # Branch pushes and PRs
+  build:
     jobs:
-      - say-hello
+      - build-linux:
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              ignore: /.*/
+      - build-macos:
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              ignore: /.*/
+      - build-windows:
+          filters:
+            branches:
+              only: /.*/
+            tags:
+              ignore: /.*/
+
+  # Tag pushes → build all platforms then publish release
+  release:
+    jobs:
+      - build-linux:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+      - build-macos:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+      - build-windows:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+      - create-release:
+          requires: [build-linux, build-macos, build-windows]
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
