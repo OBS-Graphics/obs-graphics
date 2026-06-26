@@ -60,12 +60,23 @@ jobs:
     environment:
       SCCACHE_DIR: C:\sccache
       VCPKG_ROOT: C:\vcpkg
+      # Keep vcpkg's binary cache (prebuilt package archives) and source
+      # downloads on stable paths *outside* C:\vcpkg so they can be cached
+      # independently of the tool itself.
+      VCPKG_DEFAULT_BINARY_CACHE: C:\vcpkg-archives
+      VCPKG_DOWNLOADS: C:\vcpkg-downloads
     steps:
       - checkout
       - run:
           name: Checkout submodules
           shell: bash.exe
           command: git submodule update --init --recursive
+      - run:
+          name: Prepare vcpkg cache dirs
+          command: |
+            # vcpkg refuses to use these dirs unless they already exist.
+            New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+            New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
       - restore_cache:
           keys:
             - windows-deps-{{ checksum "buildspec.json" }}
@@ -73,10 +84,24 @@ jobs:
       - restore_cache:
           keys:
             - windows-vcpkg-tool-v1
+      # Binary cache: the prebuilt package archives. This is what actually
+      # lets `vcpkg install` skip re-downloading + rebuilding every run.
+      # Rolling key (epoch suffix on save) so each run publishes a fresh,
+      # complete cache instead of being frozen by CircleCI's immutable-cache
+      # rule; the prefix fallbacks restore the most recent matching cache.
       - restore_cache:
           keys:
-            - windows-vcpkg-{{ checksum "vcpkg.json" }}
-            - windows-vcpkg-
+            - windows-vcpkg-archives-{{ checksum "vcpkg.json" }}-
+            - windows-vcpkg-archives-
+      # The fully resolved install tree — restoring it makes install a no-op
+      # when vcpkg.json is unchanged.
+      - restore_cache:
+          keys:
+            - windows-vcpkg-installed-{{ checksum "vcpkg.json" }}-
+      # Source downloads, used only on a binary-cache miss.
+      - restore_cache:
+          keys:
+            - windows-vcpkg-downloads-
       - restore_cache:
           keys:
             - windows-sccache-{{ .Branch }}-{{ .Revision }}
@@ -106,6 +131,21 @@ jobs:
               --triplet x64-windows `
               --x-manifest-root="$PWD" `
               --x-install-root="$PWD\build_x64\vcpkg_installed"
+      # Persist the freshly populated binary cache, install tree and downloads
+      # *after* install, with rolling keys so the new archives are actually
+      # saved (CircleCI never overwrites an existing cache key).
+      - save_cache:
+          key: windows-vcpkg-archives-{{ checksum "vcpkg.json" }}-{{ epoch }}
+          paths: [C:\vcpkg-archives]
+          when: always
+      - save_cache:
+          key: windows-vcpkg-installed-{{ checksum "vcpkg.json" }}-{{ epoch }}
+          paths: [build_x64/vcpkg_installed]
+          when: always
+      - save_cache:
+          key: windows-vcpkg-downloads-{{ epoch }}
+          paths: [C:\vcpkg-downloads]
+          when: always
       - run:
           name: Configure
           no_output_timeout: 30m
@@ -136,10 +176,6 @@ jobs:
       - save_cache:
           key: windows-deps-{{ checksum "buildspec.json" }}
           paths: [.deps]
-          when: always
-      - save_cache:
-          key: windows-vcpkg-{{ checksum "vcpkg.json" }}
-          paths: [build_x64/vcpkg_installed]
           when: always
       - save_cache:
           key: windows-sccache-{{ .Branch }}-{{ .Revision }}
