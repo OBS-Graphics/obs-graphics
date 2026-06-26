@@ -52,54 +52,6 @@ jobs:
           paths: [~/.ccache]
           when: always
 
-  build-macos:
-    macos:
-      xcode: "26.0.1"
-    resource_class: m4pro.medium
-    environment:
-      CCACHE_DIR: ~/.ccache
-    steps:
-      - checkout
-      - run:
-          name: Checkout submodules
-          command: git submodule update --init --recursive
-      - restore_cache:
-          keys:
-            - macos-deps-{{ checksum "buildspec.json" }}
-            - macos-deps-
-      - restore_cache:
-          keys:
-            - macos-ccache-{{ .Branch }}-{{ .Revision }}
-            - macos-ccache-{{ .Branch }}-
-            - macos-ccache-
-      - run:
-          name: Install build tools
-          command: brew install cmake ccache
-      - run:
-          name: Configure
-          no_output_timeout: 30m
-          command: |
-            cmake -S . -B build \
-              -G Xcode \
-              -DENABLE_CCACHE=ON
-      - run:
-          name: Build
-          command: cmake --build build --config RelWithDebInfo --parallel
-      - run:
-          name: Install
-          command: cmake --install build --prefix dist
-      - store_artifacts:
-          path: dist
-          destination: macos
-      - save_cache:
-          key: macos-deps-{{ checksum "buildspec.json" }}
-          paths: [.deps]
-          when: always
-      - save_cache:
-          key: macos-ccache-{{ .Branch }}-{{ .Revision }}
-          paths: [~/.ccache]
-          when: always
-
   build-windows:
     executor:
       name: windows/default
@@ -198,5 +150,4 @@ workflows:
   build:
     jobs:
       - build-linux
-      - build-macos
       - build-windows
