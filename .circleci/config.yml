@@ -54,7 +54,7 @@ jobs:
 
   build-macos:
     macos:
-      xcode: "15.4.0"
+      xcode: "16.1.0"
     resource_class: macos.m1.medium.gen1
     environment:
       CCACHE_DIR: ~/.ccache
@@ -74,19 +74,17 @@ jobs:
             - macos-ccache-
       - run:
           name: Install build tools
-          command: brew install cmake ninja ccache
+          command: brew install cmake ccache
       - run:
           name: Configure
           no_output_timeout: 30m
           command: |
             cmake -S . -B build \
-              -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              -G Xcode \
+              -DENABLE_CCACHE=ON
       - run:
           name: Build
-          command: cmake --build build --parallel
+          command: cmake --build build --config RelWithDebInfo --parallel
       - run:
           name: Install
           command: cmake --install build --prefix dist
@@ -130,7 +128,7 @@ jobs:
             - windows-sccache-
       - run:
           name: Install build tools
-          command: choco install pkgconfiglite sccache -y --no-progress
+          command: choco install cmake pkgconfiglite sccache -y --no-progress
       - run:
           name: Configure
           no_output_timeout: 30m
