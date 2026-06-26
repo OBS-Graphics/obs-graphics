@@ -27,7 +27,7 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y --no-install-recommends \
               cmake ninja-build pkg-config ccache \
-              libobs-dev obs-studio \
+              libobs-dev \
               qt6-base-dev libqt6svg6-dev qt6-tools-dev \
               libcairo2-dev libpango1.0-dev
       - run:
@@ -54,7 +54,7 @@ jobs:
 
   build-macos:
     macos:
-      xcode: "16.1.0"
+      xcode: "15.4.0"
     resource_class: macos.m1.medium.gen1
     environment:
       CCACHE_DIR: ~/.ccache
@@ -121,18 +121,25 @@ jobs:
             - windows-deps-
       - restore_cache:
           keys:
+            - windows-vcpkg-{{ checksum "vcpkg.json" }}
+            - windows-vcpkg-
+      - restore_cache:
+          keys:
             - windows-sccache-{{ .Branch }}-{{ .Revision }}
             - windows-sccache-{{ .Branch }}-
             - windows-sccache-
       - run:
           name: Install build tools
-          command: choco install pkgconfiglite cmake sccache -y --no-progress
+          command: choco install pkgconfiglite sccache -y --no-progress
       - run:
           name: Configure
           no_output_timeout: 30m
           command: |
+            $vcpkg = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { "C:\vcpkg" }
             cmake -S . -B build_x64 `
               -G "Visual Studio 17 2022" -A x64 `
+              -DCMAKE_TOOLCHAIN_FILE="$vcpkg\scripts\buildsystems\vcpkg.cmake" `
+              -DVCPKG_TARGET_TRIPLET=x64-windows `
               -DCMAKE_C_COMPILER_LAUNCHER=sccache `
               -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
       - run:
@@ -151,6 +158,10 @@ jobs:
       - save_cache:
           key: windows-deps-{{ checksum "buildspec.json" }}
           paths: [.deps]
+          when: always
+      - save_cache:
+          key: windows-vcpkg-{{ checksum "vcpkg.json" }}
+          paths: [build_x64/vcpkg_installed]
           when: always
       - save_cache:
           key: windows-sccache-{{ .Branch }}-{{ .Revision }}

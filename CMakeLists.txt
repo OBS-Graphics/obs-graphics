@@ -3,13 +3,6 @@ cmake_minimum_required(VERSION 3.28...3.30)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake")
 
-CPMAddPackage(
-    NAME qlementine-icons
-    GITHUB_REPOSITORY oclero/qlementine-icons
-    GIT_TAG master
-    EXCLUDE_FROM_ALL TRUE
-)
-
 find_package(Git QUIET)
 if(GIT_FOUND)
   execute_process(
@@ -31,6 +24,15 @@ project(obs-graphics VERSION ${_git_tag_version})
 include(compilerconfig)
 include(defaults)
 include(helpers)
+
+# Must come after include(defaults) so Qt6 is in CMAKE_PREFIX_PATH
+# (on macOS/Windows, defaults downloads the prebuilt OBS deps that contain Qt6)
+CPMAddPackage(
+    NAME qlementine-icons
+    GITHUB_REPOSITORY oclero/qlementine-icons
+    GIT_TAG master
+    EXCLUDE_FROM_ALL TRUE
+)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE)
 
