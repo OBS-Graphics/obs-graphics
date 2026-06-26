@@ -54,8 +54,8 @@ jobs:
 
   build-macos:
     macos:
-      xcode: "16.1.0"
-    resource_class: macos.m1.medium.gen1
+      xcode: "26.0.1"
+    resource_class: m4pro.medium
     environment:
       CCACHE_DIR: ~/.ccache
     steps:
@@ -107,6 +107,7 @@ jobs:
       shell: powershell.exe
     environment:
       SCCACHE_DIR: C:\sccache
+      VCPKG_ROOT: C:\vcpkg
     steps:
       - checkout
       - run:
@@ -117,6 +118,9 @@ jobs:
           keys:
             - windows-deps-{{ checksum "buildspec.json" }}
             - windows-deps-
+      - restore_cache:
+          keys:
+            - windows-vcpkg-tool-v1
       - restore_cache:
           keys:
             - windows-vcpkg-{{ checksum "vcpkg.json" }}
@@ -130,24 +134,38 @@ jobs:
           name: Install build tools
           command: choco install cmake pkgconfiglite sccache -y --no-progress
       - run:
+          name: Bootstrap vcpkg
+          command: |
+            # CircleCI's Windows image does NOT ship vcpkg (unlike GitHub runners),
+            # so clone + bootstrap it ourselves into $VCPKG_ROOT.
+            if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
+              git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+              & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+            }
+            & "$env:VCPKG_ROOT\vcpkg.exe" version
+      - save_cache:
+          key: windows-vcpkg-tool-v1
+          paths: [C:\vcpkg]
+      - run:
           name: Install vcpkg dependencies
           no_output_timeout: 30m
           command: |
-            $vcpkg = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { "C:\vcpkg" }
-            $install_dir = "$PWD\build_x64\vcpkg_installed"
-            & "$vcpkg\vcpkg.exe" install --triplet x64-windows --x-install-root="$install_dir"
+            & "$env:VCPKG_ROOT\vcpkg.exe" install `
+              --triplet x64-windows `
+              --x-manifest-root="$PWD" `
+              --x-install-root="$PWD\build_x64\vcpkg_installed"
       - run:
           name: Configure
           no_output_timeout: 30m
           command: |
-            $vcpkg = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { "C:\vcpkg" }
             $install_dir = "$PWD\build_x64\vcpkg_installed"
             $env:PKG_CONFIG_PATH = "$install_dir\x64-windows\lib\pkgconfig"
             cmake -S . -B build_x64 `
               -G "Visual Studio 17 2022" -A x64 `
-              -DCMAKE_TOOLCHAIN_FILE="$vcpkg\scripts\buildsystems\vcpkg.cmake" `
+              -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
               -DVCPKG_TARGET_TRIPLET=x64-windows `
               -DVCPKG_INSTALLED_DIR="$install_dir" `
+              -DVCPKG_MANIFEST_INSTALL=OFF `
               -DCMAKE_C_COMPILER_LAUNCHER=sccache `
               -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
       - run:
