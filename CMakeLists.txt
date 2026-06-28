@@ -59,12 +59,11 @@ target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_20)
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/plugin-main.cpp
-    src/shared-scene.cpp
+    src/shared-title.cpp
     src/app-config.cpp
     src/graphics-dock.cpp
     src/graphics-source.cpp
     src/icons.cpp
-    src/data-source-dialog.cpp
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE engine)

@@ -23,47 +23,6 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 using json = nlohmann::json;
 
-static SceneConfig sceneConfigFromJson(const json& j)
-{
-    SceneConfig cfg;
-    cfg.scenePath = j.value("scene_path", "");
-
-    if (j.contains("data_sources") && j["data_sources"].is_object()) {
-        for (auto& [id, dsj] : j["data_sources"].items()) {
-            if (!dsj.is_object())
-                continue;
-            cfg.dataSources[id] = {dsj.value("path", ""), dsj.value("type", "json")};
-        }
-    }
-
-    if (j.contains("selected_records") && j["selected_records"].is_object()) {
-        for (auto& [id, idx] : j["selected_records"].items()) {
-            if (idx.is_number_integer())
-                cfg.selectedRecords[id] = idx.get<int>();
-        }
-    }
-
-    return cfg;
-}
-
-static json sceneConfigToJson(const SceneConfig& cfg)
-{
-    json j;
-    j["scene_path"] = cfg.scenePath;
-
-    json dsj = json::object();
-    for (auto& [id, ds] : cfg.dataSources)
-        dsj[id] = {{"path", ds.path}, {"type", ds.type}};
-    j["data_sources"] = dsj;
-
-    json recj = json::object();
-    for (auto& [id, idx] : cfg.selectedRecords)
-        recj[id] = idx;
-    j["selected_records"] = recj;
-
-    return j;
-}
-
 AppConfig AppConfig::Load(const std::string& configPath)
 {
     AppConfig cfg;
@@ -78,24 +37,12 @@ AppConfig AppConfig::Load(const std::string& configPath)
         return cfg;
     }
 
-    // v1 migration: single scene_path at root → wrap as scenes[0]
-    if (j.contains("scene_path")) {
-        cfg.scenes.push_back(sceneConfigFromJson(j));
-        cfg.activeTabIndex = 0;
-        return cfg;
-    }
-
-    cfg.activeTabIndex = j.value("active_tab", 0);
-
-    if (j.contains("scenes") && j["scenes"].is_array()) {
-        for (auto& sj : j["scenes"]) {
-            if (sj.is_object())
-                cfg.scenes.push_back(sceneConfigFromJson(sj));
+    if (j.contains("titles") && j["titles"].is_array()) {
+        for (auto& entry : j["titles"]) {
+            if (entry.is_string())
+                cfg.titlePaths.push_back(entry.get<std::string>());
         }
     }
-
-    if (cfg.activeTabIndex >= (int)cfg.scenes.size())
-        cfg.activeTabIndex = 0;
 
     return cfg;
 }
@@ -103,13 +50,8 @@ AppConfig AppConfig::Load(const std::string& configPath)
 void AppConfig::Save(const std::string& configPath) const
 {
     json j;
-    j["version"] = 2;
-    j["active_tab"] = activeTabIndex;
-
-    json scenesArr = json::array();
-    for (auto& sc : scenes)
-        scenesArr.push_back(sceneConfigToJson(sc));
-    j["scenes"] = scenesArr;
+    j["version"] = 3;
+    j["titles"] = titlePaths;
 
     std::ofstream f(configPath);
     f << j.dump(4);

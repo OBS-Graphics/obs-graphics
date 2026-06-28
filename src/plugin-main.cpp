@@ -44,7 +44,7 @@ bool obs_module_load(void)
     std::filesystem::create_directories(std::filesystem::path(configPath).parent_path());
 
     auto* dock = new GraphicsDockWidget(mainWin, std::move(configPath));
-    obs_frontend_add_dock_by_id("obs-graphics-dock", "Live Graphics Scenes", dock);
+    obs_frontend_add_dock_by_id("obs-graphics-dock", "Live Graphics Titles", dock);
 
     obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
     return true;

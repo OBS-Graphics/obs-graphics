@@ -16,7 +16,28 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "shared-scene.h"
+#pragma once
 
-std::vector<std::shared_ptr<SceneSlot>> g_scene_slots;
-std::atomic<std::shared_ptr<SceneSlot>> g_active_slot;
+#include "engine/title.h"
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+struct TitleSlot {
+    Title title;
+    std::mutex mutex;
+    std::atomic<bool> loaded{false};
+    std::string path;
+
+    TitleSlot() = default;
+    TitleSlot(const TitleSlot&) = delete;
+    TitleSlot& operator=(const TitleSlot&) = delete;
+};
+
+using TitleSlotList = std::vector<std::shared_ptr<TitleSlot>>;
+
+// Atomic snapshot: UI thread atomically replaces the list; render thread atomically reads it.
+// The shared_ptr ensures in-flight slots stay alive even after removal from the list.
+extern std::atomic<std::shared_ptr<TitleSlotList>> g_title_slots;

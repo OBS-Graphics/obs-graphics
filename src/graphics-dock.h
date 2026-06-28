@@ -19,13 +19,8 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "app-config.h"
-#include "data-source-dialog.h"
-#include "engine/data-source.h"
-#include "shared-scene.h"
+#include "shared-title.h"
 
-#include <QMap>
-#include <QStackedWidget>
-#include <QTabWidget>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -34,56 +29,26 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
 
-// Per-scene tab content: shows the graphics list for one loaded scene.
-class ScenePageWidget : public QWidget {
-    Q_OBJECT
-public:
-    explicit ScenePageWidget(std::shared_ptr<SceneSlot> slot, QWidget* parent = nullptr);
-    ~ScenePageWidget() override;
-
-    std::shared_ptr<SceneSlot> slot() const { return m_slot; }
-    SceneConfig toConfig() const;
-    void restoreFromConfig(const SceneConfig& cfg);
-
-signals:
-    void configChanged();
-
-private slots:
-    void onToggleGraphic(int index);
-    void onOpenDataSourceDialog(int index);
-    void onLoadRequested(int index, const QString& path);
-    void onRecordSelected(int index, int recordIndex);
-
-private:
-    void rebuildTable();
-    QWidget* buildActionCell(int graphicIndex, bool isVisible);
-
-    std::shared_ptr<SceneSlot> m_slot;
-    QTableWidget* m_table{nullptr};
-    std::vector<std::unique_ptr<IDataSource>> m_dataSources;
-    QMap<int, DataSourceDialog*> m_openDialogs;
-};
-
-// Top-level dock widget: tab container with one ScenePageWidget per loaded scene.
+// Flat dock widget: one row per loaded title, with Trigger In / Trigger Out / Remove actions.
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
     explicit GraphicsDockWidget(QWidget* parent, std::string configPath);
 
 private slots:
-    void onAddTabClicked();
-    void onTabCloseRequested(int index);
-    void onTabChanged(int index);
-    void onChildConfigChanged();
+    void onAddTitleClicked();
+    void onTriggerIn(int row);
+    void onTriggerOut(int row);
+    void onRemoveTitle(int row);
 
 private:
-    void addSceneTab(std::shared_ptr<SceneSlot> slot);
-    void updateEmptyState();
+    void addTitleRow(std::shared_ptr<TitleSlot> slot);
+    void rebuildGlobalList();
     void saveConfig();
     void loadConfig();
 
-    QStackedWidget* m_stack{nullptr};
-    QTabWidget* m_tabs{nullptr};
+    QTableWidget* m_table{nullptr};
+    std::vector<std::shared_ptr<TitleSlot>> m_slots; // parallel to table rows, UI-thread only
     std::string m_configPath;
     bool m_loading{false};
 };

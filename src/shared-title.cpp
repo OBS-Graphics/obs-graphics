@@ -16,14 +16,7 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
+#include "shared-title.h"
 
-#include <string>
-#include <vector>
-
-struct AppConfig {
-    std::vector<std::string> titlePaths;
-
-    static AppConfig Load(const std::string& configPath);
-    void Save(const std::string& configPath) const;
-};
+std::atomic<std::shared_ptr<TitleSlotList>> g_title_slots{
+    std::make_shared<TitleSlotList>()};

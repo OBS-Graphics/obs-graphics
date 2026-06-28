@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "shared-scene.h"
+#include "shared-title.h"
 #include <obs-module.h>
 
 #ifdef __APPLE__
@@ -101,23 +101,22 @@ static void source_video_tick(void* data, float seconds)
         s->needs_texture_reset = true;
     }
 
-    // Atomically grab the active slot; bumps refcount so the slot survives
-    // even if a tab is closed concurrently on the UI thread.
-    auto slot = g_active_slot.load();
-    if (!slot || !slot->loaded.load())
+    auto slots = g_title_slots.load();
+    if (!slots || slots->empty())
         return;
-
-    std::lock_guard<std::mutex> lock(slot->mutex);
-
-    slot->scene.width = (int)s->width;
-    slot->scene.height = (int)s->height;
-
-    slot->scene.Tick(seconds);
 
     cairo_set_operator(s->cr, CAIRO_OPERATOR_CLEAR);
     cairo_paint(s->cr);
     cairo_set_operator(s->cr, CAIRO_OPERATOR_OVER);
-    slot->scene.Render(s->cr);
+
+    for (auto& slot : *slots) {
+        if (!slot->loaded.load())
+            continue;
+        std::lock_guard<std::mutex> lock(slot->mutex);
+        slot->title.Tick(seconds);
+        slot->title.Render(s->cr);
+    }
+
     cairo_surface_flush(s->surface);
 }
 
@@ -149,22 +148,12 @@ static void source_render(void* data, gs_effect_t*)
 
 static uint32_t source_get_width(void* data)
 {
-    auto* s = static_cast<GraphicsSource*>(data);
-    auto slot = g_active_slot.load();
-    if (!slot || !slot->loaded.load())
-        return s->width;
-    std::lock_guard<std::mutex> lock(slot->mutex);
-    return (uint32_t)slot->scene.width;
+    return static_cast<GraphicsSource*>(data)->width;
 }
 
 static uint32_t source_get_height(void* data)
 {
-    auto* s = static_cast<GraphicsSource*>(data);
-    auto slot = g_active_slot.load();
-    if (!slot || !slot->loaded.load())
-        return s->height;
-    std::lock_guard<std::mutex> lock(slot->mutex);
-    return (uint32_t)slot->scene.height;
+    return static_cast<GraphicsSource*>(data)->height;
 }
 
 // ── Registration ─────────────────────────────────────────────────────────────
