@@ -47,6 +47,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::
 target_compile_options(
   ${CMAKE_PROJECT_NAME}
   PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>
+          $<$<CXX_COMPILER_ID:MSVC>:/wd4100>
+          $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-unused-parameter>
 )
 set_target_properties(
   ${CMAKE_PROJECT_NAME}

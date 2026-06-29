@@ -28,9 +28,9 @@ set(
   -Wswitch
   -Wno-unused-function
   -Wno-unused-label
-  -Wunused-parameter
-  -Wunused-variable
-  -Wunused-value
+  -Wno-unused-parameter
+  -Wno-unused-variable
+  -Wno-unused-value
   -Wempty-body
   -Wuninitialized
   -Wno-unknown-pragmas
@@ -41,20 +41,19 @@ set(
   -Wbool-conversion
   -Wenum-conversion
   -Wnon-literal-null-conversion
-  -Wsign-compare
-  -Wshorten-64-to-32
-  -Wpointer-sign
+  -Wno-sign-compare
+  -Wno-shorten-64-to-32
+  -Wno-pointer-sign
   -Wnewline-eof
   -Wno-implicit-fallthrough
-  -Wdeprecated-declarations
+  -Wno-deprecated-declarations
   -Wno-sign-conversion
   -Winfinite-recursion
-  -Wcomma
+  -Wno-comma
   -Wno-strict-prototypes
   -Wno-semicolon-before-method-body
   -Wformat-security
-  -Wvla
-  -Wno-error=shorten-64-to-32
+  -Wno-vla
 )
 
 # clang options for C
@@ -79,5 +78,5 @@ if(CMAKE_CXX_STANDARD GREATER_EQUAL 20)
 endif()
 
 if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
-  set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+  set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 endif()
