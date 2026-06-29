@@ -114,7 +114,7 @@ static void source_video_tick(void* data, float seconds)
             continue;
         std::lock_guard<std::mutex> lock(slot->mutex);
         slot->title.Tick(seconds);
-        slot->title.Render(s->cr);
+        slot->title.Render(s->cr, s->width, s->height);
     }
 
     cairo_surface_flush(s->surface);
