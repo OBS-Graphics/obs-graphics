@@ -22,6 +22,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include <QDialog>
 #include <QLabel>
+#include <QPushButton>
 #include <QTableWidget>
 
 class DataSourceDialog : public QDialog {
@@ -36,14 +37,17 @@ signals:
 
 private slots:
     void onLoadClicked();
+    void onRefreshClicked();
     void onSelectionChanged();
 
 private:
     void rebuildTable();
+    void updateRefreshVisibility();
 
     TitleSlot* m_slot{nullptr};
     QLabel* m_fileLabel{nullptr};
     QTableWidget* m_recordTable{nullptr};
+    QPushButton* m_refreshBtn{nullptr};
 
     friend class GraphicsDockWidget;
     void setSlot(TitleSlot* slot);

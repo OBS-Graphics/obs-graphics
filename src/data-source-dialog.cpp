@@ -27,6 +27,8 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include "icons.h"
+
 #include <filesystem>
 
 DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
@@ -44,6 +46,13 @@ DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
     auto* loadBtn = new QPushButton("Load Data Source...");
     connect(loadBtn, &QPushButton::clicked, this, &DataSourceDialog::onLoadClicked);
     toolbar->addWidget(loadBtn);
+
+    m_refreshBtn = new QPushButton(themedIcon(Icons16::Action_Refresh), "Refresh");
+    m_refreshBtn->setToolTip("Reload Lua script");
+    m_refreshBtn->setVisible(false);
+    connect(m_refreshBtn, &QPushButton::clicked, this, &DataSourceDialog::onRefreshClicked);
+    toolbar->addWidget(m_refreshBtn);
+
     toolbar->addStretch();
     layout->addLayout(toolbar);
 
@@ -74,8 +83,16 @@ void DataSourceDialog::setSlot(TitleSlot* slot)
     m_slot = slot;
     if (m_slot && !m_slot->dataSourcePath.empty()) {
         m_fileLabel->setText(QString::fromStdString(m_slot->dataSourcePath));
+        updateRefreshVisibility();
         rebuildTable();
     }
+}
+
+void DataSourceDialog::updateRefreshVisibility()
+{
+    bool isLua = m_slot && !m_slot->dataSourcePath.empty() &&
+                 std::filesystem::path(m_slot->dataSourcePath).extension().string() == ".lua";
+    m_refreshBtn->setVisible(isLua);
 }
 
 int DataSourceDialog::selectedRecord() const
@@ -126,6 +143,35 @@ void DataSourceDialog::onLoadClicked()
     }
 
     m_fileLabel->setText(path);
+    updateRefreshVisibility();
+    rebuildTable();
+    emit dataSourceChanged();
+}
+
+void DataSourceDialog::onRefreshClicked()
+{
+    if (!m_slot || m_slot->dataSourcePath.empty())
+        return;
+
+    std::unique_ptr<IDataSource> ds;
+    try {
+        ds = std::make_unique<ScriptDataSource>(m_slot->dataSourcePath);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Failed to Reload Lua Script",
+                              QString("Could not reload:\n%1").arg(e.what()));
+        return;
+    } catch (...) {
+        QMessageBox::critical(this, "Failed to Reload Lua Script",
+                              "Could not reload: unknown error.");
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_slot->mutex);
+        m_slot->ownedDataSource = std::move(ds);
+        m_slot->title.dataSource = m_slot->ownedDataSource.get();
+    }
+
     rebuildTable();
     emit dataSourceChanged();
 }
@@ -137,6 +183,8 @@ void DataSourceDialog::onSelectionChanged()
         return;
     std::lock_guard<std::mutex> lock(m_slot->mutex);
     m_slot->title.dataRecordIndex = static_cast<size_t>(row);
+    if (m_slot->title.state == TitleState::Hidden)
+        m_slot->title.UpdateData();
 }
 
 void DataSourceDialog::rebuildTable()

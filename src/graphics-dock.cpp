@@ -93,15 +93,17 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
 
     auto* dsBtn = new QToolButton();
     dsBtn->setIcon(themedIcon(Icons16::Hardware_Database));
+    dsBtn->setIconSize(QSize(16, 16));
     dsBtn->setAutoRaise(true);
-    dsBtn->setFixedSize(24, 24);
+    dsBtn->setFixedWidth(28);
     dsBtn->setToolTip("Data Source...");
     hbox->addWidget(dsBtn);
 
     auto* removeBtn = new QToolButton();
-    removeBtn->setIcon(themedIcon(Icons16::Action_CloseSmall));
+    removeBtn->setIcon(themedIcon(Icons16::Action_Trash));
+    removeBtn->setIconSize(QSize(16, 16));
     removeBtn->setAutoRaise(true);
-    removeBtn->setFixedSize(24, 24);
+    removeBtn->setFixedWidth(28);
     removeBtn->setToolTip("Remove");
     hbox->addWidget(removeBtn);
 
@@ -226,6 +228,14 @@ void GraphicsDockWidget::onDataSource(int row)
 void GraphicsDockWidget::onRemoveTitle(int row)
 {
     if (row < 0 || row >= (int)m_slots.size())
+        return;
+
+    QString name = m_table->item(row, 0) ? m_table->item(row, 0)->text() : "this title";
+    auto answer = QMessageBox::question(
+        this, "Remove Title",
+        QString("Remove \"%1\"?").arg(name),
+        QMessageBox::Yes | QMessageBox::Cancel);
+    if (answer != QMessageBox::Yes)
         return;
 
     if (row < (int)m_rowWidgets.size() && m_rowWidgets[row].dsDialog) {
