@@ -18,6 +18,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "engine/data-source.h"
 #include "engine/title.h"
 #include <atomic>
 #include <memory>
@@ -30,6 +31,8 @@ struct TitleSlot {
     std::mutex mutex;
     std::atomic<bool> loaded{false};
     std::string path;
+    std::unique_ptr<IDataSource> ownedDataSource; // dock owns, title holds raw ptr
+    std::string dataSourcePath;
 
     TitleSlot() = default;
     TitleSlot(const TitleSlot&) = delete;

@@ -18,17 +18,33 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include "shared-title.h"
 
-struct TitleEntry {
-    std::string path;
-    std::string dataSourcePath;
-};
+#include <QDialog>
+#include <QLabel>
+#include <QTableWidget>
 
-struct AppConfig {
-    std::vector<TitleEntry> titles;
+class DataSourceDialog : public QDialog {
+    Q_OBJECT
+public:
+    DataSourceDialog(const QString& titleName, QWidget* parent = nullptr);
 
-    static AppConfig Load(const std::string& configPath);
-    void Save(const std::string& configPath) const;
+    int selectedRecord() const;
+
+signals:
+    void dataSourceChanged();
+
+private slots:
+    void onLoadClicked();
+    void onSelectionChanged();
+
+private:
+    void rebuildTable();
+
+    TitleSlot* m_slot{nullptr};
+    QLabel* m_fileLabel{nullptr};
+    QTableWidget* m_recordTable{nullptr};
+
+    friend class GraphicsDockWidget;
+    void setSlot(TitleSlot* slot);
 };

@@ -39,8 +39,15 @@ AppConfig AppConfig::Load(const std::string& configPath)
 
     if (j.contains("titles") && j["titles"].is_array()) {
         for (auto& entry : j["titles"]) {
-            if (entry.is_string())
-                cfg.titlePaths.push_back(entry.get<std::string>());
+            if (entry.is_string()) {
+                // v3 compat: plain string path
+                cfg.titles.push_back({entry.get<std::string>(), ""});
+            } else if (entry.is_object()) {
+                TitleEntry te;
+                te.path = entry.value("path", "");
+                te.dataSourcePath = entry.value("data_source", "");
+                cfg.titles.push_back(te);
+            }
         }
     }
 
@@ -50,8 +57,16 @@ AppConfig AppConfig::Load(const std::string& configPath)
 void AppConfig::Save(const std::string& configPath) const
 {
     json j;
-    j["version"] = 3;
-    j["titles"] = titlePaths;
+    j["version"] = 4;
+
+    json arr = json::array();
+    for (auto& te : titles) {
+        json e;
+        e["path"] = te.path;
+        e["data_source"] = te.dataSourcePath;
+        arr.push_back(e);
+    }
+    j["titles"] = arr;
 
     std::ofstream f(configPath);
     f << j.dump(4);

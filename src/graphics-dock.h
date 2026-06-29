@@ -19,9 +19,11 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "app-config.h"
+#include "data-source-dialog.h"
 #include "shared-title.h"
 
 #include <QTableWidget>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -29,7 +31,14 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <string>
 #include <vector>
 
-// Flat dock widget: one row per loaded title, with Trigger In / Trigger Out / Remove actions.
+struct RowWidgets {
+    QPushButton* toggleBtn{nullptr};
+    DataSourceDialog* dsDialog{nullptr};
+    bool isIn{false};
+};
+
+// Flat dock widget: one row per loaded title, with a toggle In/Out button,
+// a data-source config button, and a remove button.
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
@@ -37,8 +46,8 @@ public:
 
 private slots:
     void onAddTitleClicked();
-    void onTriggerIn(int row);
-    void onTriggerOut(int row);
+    void onToggle(int row);
+    void onDataSource(int row);
     void onRemoveTitle(int row);
 
 private:
@@ -48,7 +57,8 @@ private:
     void loadConfig();
 
     QTableWidget* m_table{nullptr};
-    std::vector<std::shared_ptr<TitleSlot>> m_slots; // parallel to table rows, UI-thread only
+    std::vector<std::shared_ptr<TitleSlot>> m_slots;
+    std::vector<RowWidgets> m_rowWidgets;
     std::string m_configPath;
     bool m_loading{false};
 };
