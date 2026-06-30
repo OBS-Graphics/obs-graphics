@@ -41,7 +41,7 @@ commands:
                   aws s3 cp s3://releases/manifest.json /tmp/manifest.json \
                     --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1 2>/dev/null \
                     || echo '{}' > /tmp/manifest.json
-                  python3 << 'PYEOF'
+                  python3 \<< 'PYEOF'
                   import json, os
                   tag  = os.environ['CIRCLE_TAG']
                   comp = os.environ['COMP']
