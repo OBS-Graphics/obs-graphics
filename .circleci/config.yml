@@ -3,6 +3,105 @@ version: 2.1
 orbs:
   windows: circleci/windows@5.1.1
 
+commands:
+  upload_to_minio:
+    parameters:
+      component:
+        type: string
+      linux_ext:
+        type: string
+        default: tar.gz
+      windows_ext:
+        type: string
+        default: zip
+      shell:
+        type: enum
+        enum: [bash, powershell]
+        default: bash
+    steps:
+      - when:
+          condition:
+            equal: [bash, << parameters.shell >>]
+          steps:
+            - run:
+                name: Upload << parameters.component >> (linux) to MinIO
+                command: |
+                  if [ -z "$CIRCLE_TAG" ]; then echo "Not a tag — skipping"; exit 0; fi
+                  pip3 install --quiet --break-system-packages awscli
+                  export AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY_ID"
+                  export AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_ACCESS_KEY"
+                  COMP="<< parameters.component >>"
+                  EXT="<< parameters.linux_ext >>"
+                  WEXT="<< parameters.windows_ext >>"
+                  TAG="$CIRCLE_TAG"
+                  FILE="artifacts/${COMP}-${TAG}-linux-x86_64.${EXT}"
+                  aws s3 cp "$FILE" \
+                    "s3://releases/${COMP}/${COMP}-${TAG}-linux-x86_64.${EXT}" \
+                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1
+                  aws s3 cp s3://releases/manifest.json /tmp/manifest.json \
+                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1 2>/dev/null \
+                    || echo '{}' > /tmp/manifest.json
+                  python3 << 'PYEOF'
+                  import json, os
+                  tag  = os.environ['CIRCLE_TAG']
+                  comp = os.environ['COMP']
+                  ext  = os.environ['EXT']
+                  wext = os.environ['WEXT']
+                  try:
+                      with open('/tmp/manifest.json') as f:
+                          m = json.load(f)
+                  except Exception:
+                      m = {}
+                  m[comp] = {
+                      'linux_x86_64': f'{comp}-{tag}-linux-x86_64.{ext}',
+                      'windows_x64':  f'{comp}-{tag}-windows-x64.{wext}',
+                  }
+                  with open('/tmp/manifest.json', 'w') as f:
+                      json.dump(m, f, indent=2)
+                  PYEOF
+                  aws s3 cp /tmp/manifest.json s3://releases/manifest.json \
+                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1 \
+                    --content-type application/json
+      - when:
+          condition:
+            equal: [powershell, << parameters.shell >>]
+          steps:
+            - run:
+                name: Upload << parameters.component >> (windows) to MinIO
+                shell: powershell.exe
+                command: |
+                  if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
+                  $tag  = $env:CIRCLE_TAG
+                  $comp = '<< parameters.component >>'
+                  $ext  = '<< parameters.windows_ext >>'
+                  $env:AWS_ACCESS_KEY_ID     = $env:MINIO_ACCESS_KEY_ID
+                  $env:AWS_SECRET_ACCESS_KEY = $env:MINIO_SECRET_ACCESS_KEY
+
+                  $file = "artifacts\$comp-$tag-windows-x64.$ext"
+                  aws s3 cp $file `
+                    "s3://releases/$comp/$comp-$tag-windows-x64.$ext" `
+                    --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1
+
+                  try {
+                    aws s3 cp s3://releases/manifest.json "$env:TEMP\manifest.json" `
+                      --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1 2>$null
+                  } catch {}
+                  if (-not (Test-Path "$env:TEMP\manifest.json")) {
+                    '{}' | Set-Content "$env:TEMP\manifest.json"
+                  }
+
+                  $linExt = '<< parameters.linux_ext >>'
+                  $m = Get-Content "$env:TEMP\manifest.json" | ConvertFrom-Json
+                  $m | Add-Member -NotePropertyName $comp -NotePropertyValue ([PSCustomObject]@{
+                    linux_x86_64 = "$comp-$tag-linux-x86_64.$linExt"
+                    windows_x64  = "$comp-$tag-windows-x64.$ext"
+                  }) -Force
+                  $m | ConvertTo-Json -Depth 5 | Set-Content "$env:TEMP\manifest_new.json"
+
+                  aws s3 cp "$env:TEMP\manifest_new.json" s3://releases/manifest.json `
+                    --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1 `
+                    --content-type application/json
+
 jobs:
 
   build-linux:
@@ -59,6 +158,17 @@ jobs:
           key: linux-ccache-{{ .Branch }}-{{ .Revision }}
           paths: [~/.ccache]
           when: always
+      - run:
+          name: Package
+          command: |
+            if [ -z "$CIRCLE_TAG" ]; then echo "Not a tag — skipping"; exit 0; fi
+            mkdir -p artifacts
+            tar -czf "artifacts/plugin-${CIRCLE_TAG}-linux-x86_64.tar.gz" -C dist .
+      - store_artifacts:
+          path: artifacts
+          destination: releases
+      - upload_to_minio:
+          component: plugin
 
   build-windows:
     executor:
@@ -68,9 +178,6 @@ jobs:
     environment:
       SCCACHE_DIR: C:\sccache
       VCPKG_ROOT: C:\vcpkg
-      # Keep vcpkg's binary cache (prebuilt package archives) and source
-      # downloads on stable paths *outside* C:\vcpkg so they can be cached
-      # independently of the tool itself.
       VCPKG_DEFAULT_BINARY_CACHE: C:\vcpkg-archives
       VCPKG_DOWNLOADS: C:\vcpkg-downloads
     steps:
@@ -82,7 +189,6 @@ jobs:
       - run:
           name: Prepare vcpkg cache dirs
           command: |
-            # vcpkg refuses to use these dirs unless they already exist.
             New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
             New-Item -ItemType Directory -Force -Path $env:VCPKG_DOWNLOADS | Out-Null
       - restore_cache:
@@ -92,21 +198,13 @@ jobs:
       - restore_cache:
           keys:
             - windows-vcpkg-tool-v1
-      # Binary cache: the prebuilt package archives. This is what actually
-      # lets `vcpkg install` skip re-downloading + rebuilding every run.
-      # Rolling key (epoch suffix on save) so each run publishes a fresh,
-      # complete cache instead of being frozen by CircleCI's immutable-cache
-      # rule; the prefix fallbacks restore the most recent matching cache.
       - restore_cache:
           keys:
             - windows-vcpkg-archives-{{ checksum "vcpkg.json" }}-
             - windows-vcpkg-archives-
-      # The fully resolved install tree — restoring it makes install a no-op
-      # when vcpkg.json is unchanged.
       - restore_cache:
           keys:
             - windows-vcpkg-installed-{{ checksum "vcpkg.json" }}-
-      # Source downloads, used only on a binary-cache miss.
       - restore_cache:
           keys:
             - windows-vcpkg-downloads-
@@ -120,12 +218,10 @@ jobs:
             - windows-cpm-sources-v1
       - run:
           name: Install build tools
-          command: choco install cmake pkgconfiglite sccache -y --no-progress
+          command: choco install cmake pkgconfiglite sccache awscli -y --no-progress
       - run:
           name: Bootstrap vcpkg
           command: |
-            # CircleCI's Windows image does NOT ship vcpkg (unlike GitHub runners),
-            # so clone + bootstrap it ourselves into $VCPKG_ROOT.
             if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
               git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
               & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
@@ -142,9 +238,6 @@ jobs:
               --triplet x64-windows `
               --x-manifest-root="$PWD" `
               --x-install-root="$PWD\build_x64\vcpkg_installed"
-      # Persist the freshly populated binary cache, install tree and downloads
-      # *after* install, with rolling keys so the new archives are actually
-      # saved (CircleCI never overwrites an existing cache key).
       - save_cache:
           key: windows-vcpkg-archives-{{ checksum "vcpkg.json" }}-{{ epoch }}
           paths: [C:\vcpkg-archives]
@@ -197,6 +290,19 @@ jobs:
           key: windows-sccache-{{ .Branch }}-{{ .Revision }}
           paths: [C:\sccache]
           when: always
+      - run:
+          name: Package (ZIP)
+          command: |
+            if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
+            $tag = $env:CIRCLE_TAG
+            New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+            Compress-Archive -Path dist -DestinationPath "artifacts\plugin-$tag-windows-x64.zip"
+      - store_artifacts:
+          path: artifacts
+          destination: releases
+      - upload_to_minio:
+          component: plugin
+          shell: powershell
 
 workflows:
   build:
