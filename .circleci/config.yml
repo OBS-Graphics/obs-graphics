@@ -201,5 +201,15 @@ jobs:
 workflows:
   build:
     jobs:
-      - build-linux
-      - build-windows
+      - build-linux:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+      - build-windows:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
