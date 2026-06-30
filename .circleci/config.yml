@@ -29,7 +29,10 @@ jobs:
               cmake ninja-build pkg-config ccache \
               libobs-dev \
               qt6-base-dev libqt6svg6-dev qt6-tools-dev \
-              libcairo2-dev libpango1.0-dev
+              libcairo2-dev libpango1.0-dev libminizip-dev
+      - restore_cache:
+          keys:
+            - cpm-sources-v1
       - run:
           name: Configure
           command: |
@@ -37,10 +40,15 @@ jobs:
               -G Ninja \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+              -DCPM_SOURCE_CACHE=~/.cpm
       - run:
           name: Build
           command: cmake --build build --parallel
+      - save_cache:
+          key: cpm-sources-v1
+          paths: [~/.cpm]
+          when: always
       - run:
           name: Install
           command: cmake --install build --prefix dist
@@ -107,6 +115,9 @@ jobs:
             - windows-sccache-{{ .Branch }}-{{ .Revision }}
             - windows-sccache-{{ .Branch }}-
             - windows-sccache-
+      - restore_cache:
+          keys:
+            - windows-cpm-sources-v1
       - run:
           name: Install build tools
           command: choco install cmake pkgconfiglite sccache -y --no-progress
@@ -159,10 +170,15 @@ jobs:
               -DVCPKG_INSTALLED_DIR="$install_dir" `
               -DVCPKG_MANIFEST_INSTALL=OFF `
               -DCMAKE_C_COMPILER_LAUNCHER=sccache `
-              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+              -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
+              "-DCPM_SOURCE_CACHE=$env:USERPROFILE\.cpm"
       - run:
           name: Build
           command: cmake --build build_x64 --config RelWithDebInfo --parallel
+      - save_cache:
+          key: windows-cpm-sources-v1
+          paths: [~/.cpm]
+          when: always
       - run:
           name: Install
           command: cmake --install build_x64 --config RelWithDebInfo --prefix dist
