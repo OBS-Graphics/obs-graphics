@@ -32,9 +32,9 @@ commands:
                   sudo /tmp/aws/install --update
                   export AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY_ID"
                   export AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_ACCESS_KEY"
-                  COMP="<< parameters.component >>"
-                  EXT="<< parameters.linux_ext >>"
-                  WEXT="<< parameters.windows_ext >>"
+                  export COMP="<< parameters.component >>"
+                  export EXT="<< parameters.linux_ext >>"
+                  export WEXT="<< parameters.windows_ext >>"
                   TAG="$CIRCLE_TAG"
                   FILE="artifacts/${COMP}-${TAG}-linux-x86_64.${EXT}"
                   aws s3 cp "$FILE" \
