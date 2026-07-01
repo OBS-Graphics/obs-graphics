@@ -1,5 +1,5 @@
 // =============================================================================
-// obs-graphics render benchmark + visual-regression harness
+// stream-canvas render benchmark + visual-regression harness
 //                                            [INSTRUMENTATION — SAFE TO DELETE]
 //
 // Standalone, offscreen, no OBS instance required. Three modes:
@@ -21,9 +21,9 @@
 // Build:
 //   cmake -B build-bench bench -DCMAKE_BUILD_TYPE=Release
 //   cmake --build build-bench -j
-//   ./build-bench/obs-graphics-bench                 # timings
-//   ./build-bench/obs-graphics-bench golden bench/golden
-//   ./build-bench/obs-graphics-bench check  bench/golden
+//   ./build-bench/stream-canvas-bench                 # timings
+//   ./build-bench/stream-canvas-bench golden bench/golden
+//   ./build-bench/stream-canvas-bench check  bench/golden
 // =============================================================================
 
 #include "scene.h"
@@ -309,7 +309,7 @@ static int run_timing()
     cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, W, H);
     cairo_t* cr = cairo_create(surf);
 
-    std::printf("obs-graphics benchmark — %dx%d ARGB32, %d frames/phase\n", W, H, ITERS);
+    std::printf("stream-canvas benchmark — %dx%d ARGB32, %d frames/phase\n", W, H, ITERS);
     std::printf("stride=%d (cairo) vs format_stride_for_width=%d\n",
                 cairo_image_surface_get_stride(surf),
                 cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, W));

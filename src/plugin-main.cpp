@@ -1,5 +1,5 @@
 /*
-obs-graphics
+StreamCanvas
 Copyright (C) 2026 Diego Lopes diego95lopes@gmail.com
 
 This program is free software; you can redistribute it and/or modify
@@ -30,6 +30,25 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 extern struct obs_source_info gGraphicsSourceInfo;
 
+// Owned by the OBS frontend (Qt) once added as a dock; only ever one instance.
+static GraphicsDockWidget* gDock = nullptr;
+
+// Titles are persisted per profile + scene collection, so the dock needs to
+// reload whenever OBS finishes starting up or the user switches either one.
+static void onFrontendEvent(enum obs_frontend_event event, void*)
+{
+    switch (event) {
+    case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+    case OBS_FRONTEND_EVENT_PROFILE_CHANGED:
+    case OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED:
+        if (gDock)
+            gDock->reloadForCurrentContext();
+        break;
+    default:
+        break;
+    }
+}
+
 bool obs_module_load(void)
 {
     obs_register_source(&gGraphicsSourceInfo);
@@ -38,13 +57,15 @@ bool obs_module_load(void)
 
     auto* mainWin = static_cast<QWidget*>(obs_frontend_get_main_window());
 
-    char* cfgRaw = obs_module_config_path("config.json");
-    std::string configPath(cfgRaw);
-    bfree(cfgRaw);
-    std::filesystem::create_directories(std::filesystem::path(configPath).parent_path());
+    char* cfgDirRaw = obs_module_config_path("");
+    std::string configDir(cfgDirRaw);
+    bfree(cfgDirRaw);
+    std::filesystem::create_directories(configDir);
 
-    auto* dock = new GraphicsDockWidget(mainWin, std::move(configPath));
-    obs_frontend_add_dock_by_id("obs-graphics-dock", "Live Graphics Titles", dock);
+    gDock = new GraphicsDockWidget(mainWin, std::move(configDir));
+    obs_frontend_add_dock_by_id("stream-canvas-dock", "Live Graphics Titles", gDock);
+
+    obs_frontend_add_event_callback(onFrontendEvent, nullptr);
 
     obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
     return true;
@@ -52,6 +73,8 @@ bool obs_module_load(void)
 
 void obs_module_unload(void)
 {
-    obs_frontend_remove_dock("obs-graphics-dock");
+    obs_frontend_remove_event_callback(onFrontendEvent, nullptr);
+    obs_frontend_remove_dock("stream-canvas-dock");
+    gDock = nullptr;
     obs_log(LOG_INFO, "plugin unloaded");
 }

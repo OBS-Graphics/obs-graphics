@@ -62,7 +62,7 @@ raw Cairo/Pango — **no production rendering code was modified**. Marked
 ```
 cmake -B build-bench bench -DCMAKE_BUILD_TYPE=Release
 cmake --build build-bench -j
-./build-bench/obs-graphics-bench
+./build-bench/stream-canvas-bench
 ```
 
 ### Results (Release, this machine — relative ranking is the point)

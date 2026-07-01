@@ -1,5 +1,5 @@
 /*
-obs-graphics — Animated broadcast graphics source for OBS Studio
+StreamCanvas — Animated broadcast graphics source for OBS Studio
 Copyright (C) 2026 Diego Lopes <diego95lopes@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
@@ -42,7 +42,12 @@ struct RowWidgets {
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit GraphicsDockWidget(QWidget* parent, std::string configPath);
+    explicit GraphicsDockWidget(QWidget* parent, std::string configDir);
+
+    // Recomputes the config path for the current OBS profile + scene collection
+    // and (re)loads titles for that context. Called on startup (once OBS reports
+    // the active profile/collection) and whenever either one changes.
+    void reloadForCurrentContext();
 
 private slots:
     void onAddTitleClicked();
@@ -55,10 +60,13 @@ private:
     void rebuildGlobalList();
     void saveConfig();
     void loadConfig();
+    void clearTitles();
+    std::string computeConfigPath() const;
 
     QTableWidget* m_table{nullptr};
     std::vector<std::shared_ptr<TitleSlot>> m_slots;
     std::vector<RowWidgets> m_rowWidgets;
+    std::string m_configDir;
     std::string m_configPath;
     bool m_loading{false};
 };

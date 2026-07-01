@@ -1,4 +1,4 @@
-obs-graphics benchmark — 1920x1080 ARGB32, 600 frames/phase
+stream-canvas benchmark — 1920x1080 ARGB32, 600 frames/phase
 stride=7680 (cairo) vs format_stride_for_width=7680
 
 === RAW PRIMITIVE PHASES (per-frame cost in isolation) ===

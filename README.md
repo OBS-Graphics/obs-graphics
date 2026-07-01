@@ -1,6 +1,6 @@
-# obs-graphics
+# StreamCanvas
 
-OBS Studio plugin that renders animated broadcast graphics overlays as a source. Scenes are authored in the [obs-graphics-editor](https://github.com/OBS-Graphics/obs-graphics-editor) and loaded at runtime.
+OBS Studio plugin that renders animated broadcast graphics overlays as a source. Scenes are authored in the [StreamCanvas Editor](https://github.com/OBS-Graphics/obs-graphics-editor) and loaded at runtime.
 
 ## Dependencies
 
@@ -36,5 +36,9 @@ cmake/                  OBS cmake build infrastructure
 
 ## Related repos
 
-- [obs-graphics-engine](https://github.com/OBS-Graphics/obs-graphics-engine) — rendering engine (submodule)
-- [obs-graphics-editor](https://github.com/OBS-Graphics/obs-graphics-editor) — standalone scene editor
+- [StreamCanvas Engine](https://github.com/OBS-Graphics/obs-graphics-engine) — rendering engine (submodule)
+- [StreamCanvas Editor](https://github.com/OBS-Graphics/obs-graphics-editor) — standalone scene editor
+
+## AI disclosure
+
+Parts of this project were built with the help of AI coding tools. All AI-assisted changes were reviewed before merging.

@@ -1,5 +1,5 @@
 /*
-obs-graphics — Animated broadcast graphics source for OBS Studio
+StreamCanvas — Animated broadcast graphics source for OBS Studio
 Copyright (C) 2026 Diego Lopes <diego95lopes@gmail.com>
 
 This program is free software; you can redistribute it and/or modify

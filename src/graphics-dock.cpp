@@ -1,5 +1,5 @@
 /*
-obs-graphics — Animated broadcast graphics source for OBS Studio
+StreamCanvas — Animated broadcast graphics source for OBS Studio
 Copyright (C) 2026 Diego Lopes <diego95lopes@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include "engine/script.h"
 #include "icons.h"
 
+#include <obs-frontend-api.h>
 #include <obs-module.h>
 
 #include <QFileDialog>
@@ -36,8 +37,24 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 static const char* kStyleIn  = "QPushButton { background-color: #28752a; color: white; font-weight: bold; }";
 static const char* kStyleOut = "QPushButton { background-color: #b42218; color: white; font-weight: bold; }";
 
-GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configPath)
-    : QWidget(parent), m_configPath(std::move(configPath))
+namespace {
+
+// Makes a profile/scene collection name safe to use as a single path component.
+std::string sanitizeForPath(const std::string& name)
+{
+    std::string out = name;
+    for (char& c : out) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' ||
+            c == '<' || c == '>' || c == '|' || static_cast<unsigned char>(c) < 0x20)
+            c = '_';
+    }
+    return out.empty() ? std::string("default") : out;
+}
+
+} // namespace
+
+GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configDir)
+    : QWidget(parent), m_configDir(std::move(configDir))
 {
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
@@ -67,7 +84,8 @@ GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configPath)
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     layout->addWidget(m_table);
 
-    loadConfig();
+    // Titles are loaded once the active profile/scene collection is known —
+    // see reloadForCurrentContext(), driven by OBS frontend events.
 }
 
 void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
@@ -149,7 +167,7 @@ void GraphicsDockWidget::rebuildGlobalList()
 void GraphicsDockWidget::onAddTitleClicked()
 {
     QString path =
-        QFileDialog::getOpenFileName(this, "Load Title", QString(), "OBS Graphics Title (*.ogt)");
+        QFileDialog::getOpenFileName(this, "Load Title", QString(), "StreamCanvas Title (*.ogt)");
     if (path.isEmpty())
         return;
 
@@ -262,9 +280,61 @@ void GraphicsDockWidget::saveConfig()
     cfg.Save(m_configPath);
 }
 
+std::string GraphicsDockWidget::computeConfigPath() const
+{
+    char* profileRaw = obs_frontend_get_current_profile();
+    char* collectionRaw = obs_frontend_get_current_scene_collection();
+    std::string profile = sanitizeForPath(profileRaw ? profileRaw : "");
+    std::string collection = sanitizeForPath(collectionRaw ? collectionRaw : "");
+    bfree(profileRaw);
+    bfree(collectionRaw);
+
+    auto dir = std::filesystem::path(m_configDir) / "profiles" / profile / collection;
+    std::filesystem::create_directories(dir);
+    return (dir / "config.json").string();
+}
+
+void GraphicsDockWidget::clearTitles()
+{
+    for (auto& rw : m_rowWidgets) {
+        if (rw.dsDialog) {
+            delete rw.dsDialog;
+            rw.dsDialog = nullptr;
+        }
+    }
+    m_table->setRowCount(0);
+    m_slots.clear();
+    m_rowWidgets.clear();
+}
+
+void GraphicsDockWidget::reloadForCurrentContext()
+{
+    clearTitles();
+    rebuildGlobalList(); // publish the empty list before touching disk
+
+    m_configPath = computeConfigPath();
+    loadConfig();
+}
+
 void GraphicsDockWidget::loadConfig()
 {
     AppConfig cfg = AppConfig::Load(m_configPath);
+
+    if (cfg.titles.empty()) {
+        // One-time migration: pre-4.x versions kept a single config shared by
+        // every profile/scene collection at m_configDir/config.json. Adopt it
+        // into whichever context is active on first run, then retire it so it
+        // isn't re-adopted by the next profile/collection the user switches to.
+        auto legacyPath = std::filesystem::path(m_configDir) / "config.json";
+        if (std::filesystem::exists(legacyPath)) {
+            cfg = AppConfig::Load(legacyPath.string());
+            if (!cfg.titles.empty())
+                cfg.Save(m_configPath);
+            std::error_code ec;
+            std::filesystem::rename(legacyPath, legacyPath.string() + ".migrated", ec);
+        }
+    }
+
     if (cfg.titles.empty())
         return;
 

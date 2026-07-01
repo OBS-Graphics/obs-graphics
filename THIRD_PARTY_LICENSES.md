@@ -1,6 +1,6 @@
 # Third-Party Licenses
 
-The obs-graphics plugin includes or links to the following third-party components.
+The StreamCanvas plugin includes or links to the following third-party components.
 
 ## OBS Studio
 License: GNU General Public License v2.0

@@ -19,7 +19,7 @@ if(NOT _git_tag_version)
   set(_git_tag_version "1.0.0")
 endif()
 
-project(obs-graphics VERSION ${_git_tag_version})
+project(stream-canvas VERSION ${_git_tag_version})
 
 include(compilerconfig)
 include(defaults)
