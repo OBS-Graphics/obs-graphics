@@ -27,14 +27,11 @@ commands:
                 name: Upload << parameters.component >> (linux) to MinIO
                 command: |
                   if [ -z "$CIRCLE_TAG" ]; then echo "Not a tag — skipping"; exit 0; fi
-                  pip3 install --quiet --break-system-packages awscli
+                  curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+                  unzip -q /tmp/awscliv2.zip -d /tmp
+                  sudo /tmp/aws/install --update
                   export AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY_ID"
                   export AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_ACCESS_KEY"
-                  # botocore >=1.36 defaults to attaching a trailing checksum (aws-chunked)
-                  # on every PutObject, which MinIO rejects with a bare 403. Restore the
-                  # old opt-in behavior since awscli here is installed unpinned.
-                  export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
-                  export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
                   COMP="<< parameters.component >>"
                   EXT="<< parameters.linux_ext >>"
                   WEXT="<< parameters.windows_ext >>"
