@@ -26,6 +26,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include <QTableWidget>
 #include <QPushButton>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -35,6 +36,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 struct RowWidgets {
     QPushButton* toggleBtn{nullptr};
+    QToolButton* reloadBtn{nullptr};
     TitleSettingsDialog* settingsDialog{nullptr};
     bool isIn{false};
 };
@@ -55,12 +57,14 @@ private slots:
     void onAddTitleClicked();
     void onToggle(int row);
     void onDataSource(int row);
+    void onReloadTitle(int row);
     void onRemoveTitle(int row);
     void onAppSettingsClicked();
     void onOpenEditorClicked();
 
 private:
     void addTitleRow(std::shared_ptr<TitleSlot> slot);
+    void registerTriggerCallbacks(TitleSlot* slotPtr);
     void rebuildGlobalList();
     void saveConfig();
     void loadConfig();

@@ -136,6 +136,14 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
     settingsBtn->setToolTip("Settings...");
     hbox->addWidget(settingsBtn);
 
+    auto* reloadBtn = new QToolButton();
+    reloadBtn->setIcon(themedIcon(Icons16::Action_Refresh));
+    reloadBtn->setIconSize(QSize(16, 16));
+    reloadBtn->setAutoRaise(true);
+    reloadBtn->setFixedWidth(28);
+    reloadBtn->setToolTip("Reload from file");
+    hbox->addWidget(reloadBtn);
+
     auto* removeBtn = new QToolButton();
     removeBtn->setIcon(themedIcon(Icons16::Action_Trash));
     removeBtn->setIconSize(QSize(16, 16));
@@ -148,6 +156,7 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
 
     RowWidgets rw;
     rw.toggleBtn = toggleBtn;
+    rw.reloadBtn = reloadBtn;
     rw.isIn = false;
     m_rowWidgets.push_back(rw);
     m_slots.push_back(std::move(slot));
@@ -167,6 +176,12 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
             onDataSource(row);
     });
 
+    connect(reloadBtn, &QToolButton::clicked, this, [this, slotPtr]() {
+        int row = rowForSlot(slotPtr);
+        if (row >= 0)
+            onReloadTitle(row);
+    });
+
     connect(removeBtn, &QToolButton::clicked, this, [this, slotPtr]() {
         int row = rowForSlot(slotPtr);
         if (row >= 0)
@@ -176,10 +191,18 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
     // Keep the dock's toggle button in sync with the Title's actual state,
     // regardless of what triggered the change: a duration timeout (fired from
     // the render thread inside Tick()) or a Lua script calling trigger_in()/
-    // trigger_out() on itself. Both run under slot->mutex already held by the
-    // caller, so this lambda must stay non-blocking — it only posts a queued
-    // UI update. The context-object overload of invokeMethod safely no-ops if
-    // this dock has since been destroyed.
+    // trigger_out() on itself.
+    registerTriggerCallbacks(slotPtr);
+}
+
+void GraphicsDockWidget::registerTriggerCallbacks(TitleSlot* slotPtr)
+{
+    // Both onTriggerIn/onTriggerOut fire under slot->mutex already held by
+    // the caller (a direct host call, a duration timeout fired from the
+    // render thread inside Tick(), or a Lua script's trigger_in()/
+    // trigger_out()), so these lambdas must stay non-blocking — they only
+    // post a queued UI update. The context-object overload of invokeMethod
+    // safely no-ops if this dock has since been destroyed.
     slotPtr->title.onTriggerIn.push_back([this, slotPtr](size_t, double) {
         QMetaObject::invokeMethod(this, [this, slotPtr]() {
             int row = rowForSlot(slotPtr);
@@ -213,6 +236,7 @@ void GraphicsDockWidget::applyRowState(int row, bool isIn)
     auto& slot = m_slots[row];
     auto& rw = m_rowWidgets[row];
     rw.isIn = isIn;
+    rw.reloadBtn->setEnabled(!isIn);
 
     if (!isIn) {
         rw.toggleBtn->setText(" In");
@@ -310,6 +334,36 @@ void GraphicsDockWidget::onDataSource(int row)
     rw.settingsDialog->show();
     rw.settingsDialog->raise();
     rw.settingsDialog->activateWindow();
+}
+
+void GraphicsDockWidget::onReloadTitle(int row)
+{
+    if (row < 0 || row >= (int)m_slots.size())
+        return;
+    if (m_rowWidgets[row].isIn)
+        return; // blocked while visible; button should already be disabled
+
+    auto& slot = m_slots[row];
+
+    Title newTitle;
+    try {
+        newTitle = Title::Load(slot->path);
+    } catch (const std::exception& e) {
+        QMessageBox::critical(this, "Failed to Reload Title",
+                              QString("Could not reload title:\n%1").arg(e.what()));
+        return;
+    } catch (...) {
+        QMessageBox::critical(this, "Failed to Reload Title",
+                              "Could not reload title: unknown error.");
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(slot->mutex);
+        newTitle.dataSource = slot->ownedDataSource.get();
+        slot->title = std::move(newTitle);
+        registerTriggerCallbacks(slot.get());
+    }
 }
 
 void GraphicsDockWidget::onRemoveTitle(int row)
