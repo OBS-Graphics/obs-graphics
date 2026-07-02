@@ -27,6 +27,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QMessageBox>
+#include <QProcess>
 #include <QPushButton>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -34,8 +35,9 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <filesystem>
 
-static const char* kStyleIn  = "QPushButton { background-color: #28752a; color: white; font-weight: bold; }";
-static const char* kStyleOut = "QPushButton { background-color: #b42218; color: white; font-weight: bold; }";
+static const char* kStyleIn    = "QPushButton { background-color: #28752a; color: white; font-weight: bold; }";
+static const char* kStyleOut   = "QPushButton { background-color: #b42218; color: white; font-weight: bold; }";
+static const char* kStyleTimed = "QPushButton { background-color: #1a5fb4; color: white; font-weight: bold; }";
 
 namespace {
 
@@ -56,6 +58,9 @@ std::string sanitizeForPath(const std::string& name)
 GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configDir)
     : QWidget(parent), m_configDir(std::move(configDir))
 {
+    m_settingsPath = (std::filesystem::path(m_configDir) / "settings.json").string();
+    m_settings = AppSettings::Load(m_settingsPath);
+
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
     layout->setSpacing(4);
@@ -70,6 +75,20 @@ GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configDir)
     connect(addBtn, &QPushButton::clicked, this, &GraphicsDockWidget::onAddTitleClicked);
     toolbarLayout->addWidget(addBtn);
     toolbarLayout->addStretch();
+
+    auto* appSettingsBtn = new QToolButton();
+    appSettingsBtn->setIcon(themedIcon(Icons16::Navigation_Settings));
+    appSettingsBtn->setIconSize(QSize(16, 16));
+    appSettingsBtn->setAutoRaise(true);
+    appSettingsBtn->setToolTip("Settings...");
+    connect(appSettingsBtn, &QToolButton::clicked, this, &GraphicsDockWidget::onAppSettingsClicked);
+    toolbarLayout->addWidget(appSettingsBtn);
+
+    m_openEditorBtn = new QPushButton(themedIcon(Icons16::Action_ExternalLink), " Open Editor");
+    connect(m_openEditorBtn, &QPushButton::clicked, this, &GraphicsDockWidget::onOpenEditorClicked);
+    toolbarLayout->addWidget(m_openEditorBtn);
+    updateOpenEditorEnabled();
+
     layout->addWidget(toolbar);
 
     // Title table: two columns — Title name | Actions
@@ -99,7 +118,7 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
         name = "Title";
     m_table->setItem(row, 0, new QTableWidgetItem(name));
 
-    // Actions cell: [Toggle In/Out] [Data Source] [Remove]
+    // Actions cell: [Toggle In/Out] [Settings] [Remove]
     auto* actions = new QWidget();
     auto* hbox = new QHBoxLayout(actions);
     hbox->setContentsMargins(2, 2, 2, 2);
@@ -109,13 +128,13 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
     toggleBtn->setStyleSheet(kStyleIn);
     hbox->addWidget(toggleBtn, 1);
 
-    auto* dsBtn = new QToolButton();
-    dsBtn->setIcon(themedIcon(Icons16::Hardware_Database));
-    dsBtn->setIconSize(QSize(16, 16));
-    dsBtn->setAutoRaise(true);
-    dsBtn->setFixedWidth(28);
-    dsBtn->setToolTip("Data Source...");
-    hbox->addWidget(dsBtn);
+    auto* settingsBtn = new QToolButton();
+    settingsBtn->setIcon(themedIcon(Icons16::Navigation_Settings));
+    settingsBtn->setIconSize(QSize(16, 16));
+    settingsBtn->setAutoRaise(true);
+    settingsBtn->setFixedWidth(28);
+    settingsBtn->setToolTip("Settings...");
+    hbox->addWidget(settingsBtn);
 
     auto* removeBtn = new QToolButton();
     removeBtn->setIcon(themedIcon(Icons16::Action_Trash));
@@ -137,25 +156,80 @@ void GraphicsDockWidget::addTitleRow(std::shared_ptr<TitleSlot> slot)
     auto* slotPtr = m_slots.back().get();
 
     connect(toggleBtn, &QPushButton::clicked, this, [this, slotPtr]() {
-        auto it = std::find_if(m_slots.begin(), m_slots.end(),
-            [slotPtr](const auto& s) { return s.get() == slotPtr; });
-        if (it != m_slots.end())
-            onToggle(static_cast<int>(it - m_slots.begin()));
+        int row = rowForSlot(slotPtr);
+        if (row >= 0)
+            onToggle(row);
     });
 
-    connect(dsBtn, &QToolButton::clicked, this, [this, slotPtr]() {
-        auto it = std::find_if(m_slots.begin(), m_slots.end(),
-            [slotPtr](const auto& s) { return s.get() == slotPtr; });
-        if (it != m_slots.end())
-            onDataSource(static_cast<int>(it - m_slots.begin()));
+    connect(settingsBtn, &QToolButton::clicked, this, [this, slotPtr]() {
+        int row = rowForSlot(slotPtr);
+        if (row >= 0)
+            onDataSource(row);
     });
 
     connect(removeBtn, &QToolButton::clicked, this, [this, slotPtr]() {
-        auto it = std::find_if(m_slots.begin(), m_slots.end(),
-            [slotPtr](const auto& s) { return s.get() == slotPtr; });
-        if (it != m_slots.end())
-            onRemoveTitle(static_cast<int>(it - m_slots.begin()));
+        int row = rowForSlot(slotPtr);
+        if (row >= 0)
+            onRemoveTitle(row);
     });
+
+    // Keep the dock's toggle button in sync with the Title's actual state,
+    // regardless of what triggered the change: a duration timeout (fired from
+    // the render thread inside Tick()) or a Lua script calling trigger_in()/
+    // trigger_out() on itself. Both run under slot->mutex already held by the
+    // caller, so this lambda must stay non-blocking — it only posts a queued
+    // UI update. The context-object overload of invokeMethod safely no-ops if
+    // this dock has since been destroyed.
+    slotPtr->title.onTriggerIn.push_back([this, slotPtr](size_t, double) {
+        QMetaObject::invokeMethod(this, [this, slotPtr]() {
+            int row = rowForSlot(slotPtr);
+            if (row >= 0)
+                applyRowState(row, true);
+        }, Qt::QueuedConnection);
+    });
+    slotPtr->title.onTriggerOut.push_back([this, slotPtr]() {
+        QMetaObject::invokeMethod(this, [this, slotPtr]() {
+            int row = rowForSlot(slotPtr);
+            if (row >= 0)
+                applyRowState(row, false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+int GraphicsDockWidget::rowForSlot(TitleSlot* slotPtr) const
+{
+    auto it = std::find_if(m_slots.begin(), m_slots.end(),
+        [slotPtr](const auto& s) { return s.get() == slotPtr; });
+    if (it == m_slots.end())
+        return -1;
+    return static_cast<int>(it - m_slots.begin());
+}
+
+void GraphicsDockWidget::applyRowState(int row, bool isIn)
+{
+    if (row < 0 || row >= (int)m_rowWidgets.size())
+        return;
+
+    auto& slot = m_slots[row];
+    auto& rw = m_rowWidgets[row];
+    rw.isIn = isIn;
+
+    if (!isIn) {
+        rw.toggleBtn->setText(" In");
+        rw.toggleBtn->setIcon(themedIcon(Icons16::Media_Play));
+        rw.toggleBtn->setStyleSheet(kStyleIn);
+        return;
+    }
+
+    double duration;
+    {
+        std::lock_guard<std::mutex> lock(slot->mutex);
+        duration = slot->duration;
+    }
+    bool timed = duration >= 0.0;
+    rw.toggleBtn->setText(" Out");
+    rw.toggleBtn->setIcon(themedIcon(timed ? Icons16::Misc_Clock : Icons16::Media_Stop));
+    rw.toggleBtn->setStyleSheet(timed ? kStyleTimed : kStyleOut);
 }
 
 void GraphicsDockWidget::rebuildGlobalList()
@@ -200,27 +274,22 @@ void GraphicsDockWidget::onToggle(int row)
     auto& slot = m_slots[row];
     auto& rw = m_rowWidgets[row];
 
+    // Don't touch the button here — Title::TriggerIn/TriggerOut below
+    // synchronously fires the onTriggerIn/onTriggerOut callback registered in
+    // addTitleRow, which applies the row state via a queued UI update. Doing
+    // it again here would apply it twice per click.
+    bool nowIn = !rw.isIn;
     std::lock_guard<std::mutex> lock(slot->mutex);
-    if (!rw.isIn) {
-        // Button shows "In" → trigger In, then show "Out"
+    if (nowIn) {
         size_t recIdx = 0;
-        if (rw.dsDialog) {
-            int sel = rw.dsDialog->selectedRecord();
+        if (rw.settingsDialog) {
+            int sel = rw.settingsDialog->selectedRecord();
             if (sel >= 0)
                 recIdx = static_cast<size_t>(sel);
         }
-        slot->title.TriggerIn(recIdx);
-        rw.isIn = true;
-        rw.toggleBtn->setText(" Out");
-        rw.toggleBtn->setIcon(themedIcon(Icons16::Media_Stop));
-        rw.toggleBtn->setStyleSheet(kStyleOut);
+        slot->title.TriggerIn(recIdx, slot->duration);
     } else {
-        // Button shows "Out" → trigger Out, then show "In"
         slot->title.TriggerOut();
-        rw.isIn = false;
-        rw.toggleBtn->setText(" In");
-        rw.toggleBtn->setIcon(themedIcon(Icons16::Media_Play));
-        rw.toggleBtn->setStyleSheet(kStyleIn);
     }
 }
 
@@ -230,17 +299,17 @@ void GraphicsDockWidget::onDataSource(int row)
         return;
 
     auto& rw = m_rowWidgets[row];
-    if (!rw.dsDialog) {
+    if (!rw.settingsDialog) {
         QString name = m_table->item(row, 0) ? m_table->item(row, 0)->text() : "Title";
-        rw.dsDialog = new DataSourceDialog(name, this);
-        rw.dsDialog->setSlot(m_slots[row].get());
-        connect(rw.dsDialog, &DataSourceDialog::dataSourceChanged,
+        rw.settingsDialog = new TitleSettingsDialog(name, this);
+        rw.settingsDialog->setSlot(m_slots[row].get());
+        connect(rw.settingsDialog, &TitleSettingsDialog::configChanged,
                 this, [this]() { saveConfig(); });
     }
 
-    rw.dsDialog->show();
-    rw.dsDialog->raise();
-    rw.dsDialog->activateWindow();
+    rw.settingsDialog->show();
+    rw.settingsDialog->raise();
+    rw.settingsDialog->activateWindow();
 }
 
 void GraphicsDockWidget::onRemoveTitle(int row)
@@ -256,9 +325,9 @@ void GraphicsDockWidget::onRemoveTitle(int row)
     if (answer != QMessageBox::Yes)
         return;
 
-    if (row < (int)m_rowWidgets.size() && m_rowWidgets[row].dsDialog) {
-        delete m_rowWidgets[row].dsDialog;
-        m_rowWidgets[row].dsDialog = nullptr;
+    if (row < (int)m_rowWidgets.size() && m_rowWidgets[row].settingsDialog) {
+        delete m_rowWidgets[row].settingsDialog;
+        m_rowWidgets[row].settingsDialog = nullptr;
     }
 
     m_table->removeRow(row);
@@ -276,7 +345,7 @@ void GraphicsDockWidget::saveConfig()
 
     AppConfig cfg;
     for (auto& slot : m_slots)
-        cfg.titles.push_back({slot->path, slot->dataSourcePath});
+        cfg.titles.push_back({slot->path, slot->dataSourcePath, slot->duration});
     cfg.Save(m_configPath);
 }
 
@@ -297,9 +366,9 @@ std::string GraphicsDockWidget::computeConfigPath() const
 void GraphicsDockWidget::clearTitles()
 {
     for (auto& rw : m_rowWidgets) {
-        if (rw.dsDialog) {
-            delete rw.dsDialog;
-            rw.dsDialog = nullptr;
+        if (rw.settingsDialog) {
+            delete rw.settingsDialog;
+            rw.settingsDialog = nullptr;
         }
     }
     m_table->setRowCount(0);
@@ -353,6 +422,7 @@ void GraphicsDockWidget::loadConfig()
 
         slot->path = entry.path;
         slot->loaded = true;
+        slot->duration = entry.duration;
 
         // Restore data source if previously configured
         if (!entry.dataSourcePath.empty() && std::filesystem::exists(entry.dataSourcePath)) {
@@ -379,4 +449,35 @@ void GraphicsDockWidget::loadConfig()
 
     rebuildGlobalList();
     m_loading = false;
+}
+
+void GraphicsDockWidget::updateOpenEditorEnabled()
+{
+    bool enabled = !m_settings.editorPath.empty() &&
+                   std::filesystem::exists(m_settings.editorPath);
+    m_openEditorBtn->setEnabled(enabled);
+}
+
+void GraphicsDockWidget::onAppSettingsClicked()
+{
+    if (!m_settingsDialog) {
+        m_settingsDialog = new SettingsDialog(this);
+        connect(m_settingsDialog, &SettingsDialog::editorPathChanged, this, [this](const QString& path) {
+            m_settings.editorPath = path.toStdString();
+            m_settings.Save(m_settingsPath);
+            updateOpenEditorEnabled();
+        });
+    }
+
+    m_settingsDialog->setEditorPath(QString::fromStdString(m_settings.editorPath));
+    m_settingsDialog->show();
+    m_settingsDialog->raise();
+    m_settingsDialog->activateWindow();
+}
+
+void GraphicsDockWidget::onOpenEditorClicked()
+{
+    if (m_settings.editorPath.empty())
+        return;
+    QProcess::startDetached(QString::fromStdString(m_settings.editorPath));
 }

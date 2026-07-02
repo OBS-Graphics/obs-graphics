@@ -19,8 +19,10 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include "app-config.h"
-#include "data-source-dialog.h"
+#include "app-settings.h"
+#include "settings-dialog.h"
 #include "shared-title.h"
+#include "title-settings-dialog.h"
 
 #include <QTableWidget>
 #include <QPushButton>
@@ -33,12 +35,12 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 struct RowWidgets {
     QPushButton* toggleBtn{nullptr};
-    DataSourceDialog* dsDialog{nullptr};
+    TitleSettingsDialog* settingsDialog{nullptr};
     bool isIn{false};
 };
 
 // Flat dock widget: one row per loaded title, with a toggle In/Out button,
-// a data-source config button, and a remove button.
+// a per-title settings button, and a remove button.
 class GraphicsDockWidget : public QWidget {
     Q_OBJECT
 public:
@@ -54,6 +56,8 @@ private slots:
     void onToggle(int row);
     void onDataSource(int row);
     void onRemoveTitle(int row);
+    void onAppSettingsClicked();
+    void onOpenEditorClicked();
 
 private:
     void addTitleRow(std::shared_ptr<TitleSlot> slot);
@@ -62,6 +66,9 @@ private:
     void loadConfig();
     void clearTitles();
     std::string computeConfigPath() const;
+    int rowForSlot(TitleSlot* slotPtr) const;
+    void applyRowState(int row, bool isIn);
+    void updateOpenEditorEnabled();
 
     QTableWidget* m_table{nullptr};
     std::vector<std::shared_ptr<TitleSlot>> m_slots;
@@ -69,4 +76,9 @@ private:
     std::string m_configDir;
     std::string m_configPath;
     bool m_loading{false};
+
+    QPushButton* m_openEditorBtn{nullptr};
+    SettingsDialog* m_settingsDialog{nullptr};
+    AppSettings m_settings;
+    std::string m_settingsPath;
 };

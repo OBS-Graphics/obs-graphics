@@ -63,7 +63,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/plugin-main.cpp
     src/shared-title.cpp
     src/app-config.cpp
-    src/data-source-dialog.cpp
+    src/app-settings.cpp
+    src/settings-dialog.cpp
+    src/title-settings-dialog.cpp
     src/graphics-dock.cpp
     src/graphics-source.cpp
     src/icons.cpp

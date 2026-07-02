@@ -46,6 +46,7 @@ AppConfig AppConfig::Load(const std::string& configPath)
                 TitleEntry te;
                 te.path = entry.value("path", "");
                 te.dataSourcePath = entry.value("data_source", "");
+                te.duration = entry.value("duration", -1.0);
                 cfg.titles.push_back(te);
             }
         }
@@ -64,6 +65,7 @@ void AppConfig::Save(const std::string& configPath) const
         json e;
         e["path"] = te.path;
         e["data_source"] = te.dataSourcePath;
+        e["duration"] = te.duration;
         arr.push_back(e);
     }
     j["titles"] = arr;

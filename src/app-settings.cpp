@@ -16,20 +16,36 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#pragma once
+#include "app-settings.h"
 
-#include <string>
-#include <vector>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
-struct TitleEntry {
-    std::string path;
-    std::string dataSourcePath;
-    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
-};
+using json = nlohmann::json;
 
-struct AppConfig {
-    std::vector<TitleEntry> titles;
+AppSettings AppSettings::Load(const std::string& settingsPath)
+{
+    AppSettings settings;
+    std::ifstream f(settingsPath);
+    if (!f.is_open())
+        return settings;
 
-    static AppConfig Load(const std::string& configPath);
-    void Save(const std::string& configPath) const;
-};
+    json j;
+    try {
+        f >> j;
+    } catch (...) {
+        return settings;
+    }
+
+    settings.editorPath = j.value("editor_path", "");
+    return settings;
+}
+
+void AppSettings::Save(const std::string& settingsPath) const
+{
+    json j;
+    j["editor_path"] = editorPath;
+
+    std::ofstream f(settingsPath);
+    f << j.dump(4);
+}

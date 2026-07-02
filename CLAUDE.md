@@ -12,6 +12,15 @@ cmake --build build -j$(nproc)
 
 Requires OBS development headers and Qt6 installed system-wide.
 
+To install into the current user's local OBS config for testing (instead of
+system paths), use the `linux-dev` preset:
+
+```bash
+cmake --preset linux-dev
+cmake --build --preset linux-dev
+cmake --install build_linux_dev   # installs into ~/.config/obs-studio/plugins/stream-canvas
+```
+
 ## Source files (`src/`)
 
 - `plugin-main.c` — `obs_module_load` / `obs_module_unload` (C entry point required by OBS)

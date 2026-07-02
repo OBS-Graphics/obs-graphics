@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "data-source-dialog.h"
+#include "title-settings-dialog.h"
 #include "engine/script.h"
 
 #include <QFileDialog>
@@ -25,16 +25,17 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 #include "icons.h"
 
 #include <filesystem>
 
-DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
+TitleSettingsDialog::TitleSettingsDialog(const QString& titleName, QWidget* parent)
     : QDialog(parent)
 {
-    setWindowTitle(QString("Data Source — %1").arg(titleName));
+    setWindowTitle(QString("Settings — %1").arg(titleName));
     setMinimumSize(480, 320);
     setWindowFlags(windowFlags() | Qt::Window);
 
@@ -42,23 +43,32 @@ DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(6);
 
+    auto* tabs = new QTabWidget();
+    layout->addWidget(tabs, 1);
+
+    // ── "Data Source" tab ────────────────────────────────────────────────
+    auto* dataSourceTab = new QWidget();
+    auto* dsLayout = new QVBoxLayout(dataSourceTab);
+    dsLayout->setContentsMargins(8, 8, 8, 8);
+    dsLayout->setSpacing(6);
+
     auto* toolbar = new QHBoxLayout();
     auto* loadBtn = new QPushButton("Load Data Source...");
-    connect(loadBtn, &QPushButton::clicked, this, &DataSourceDialog::onLoadClicked);
+    connect(loadBtn, &QPushButton::clicked, this, &TitleSettingsDialog::onLoadClicked);
     toolbar->addWidget(loadBtn);
 
     m_refreshBtn = new QPushButton(themedIcon(Icons16::Action_Refresh), "Refresh");
     m_refreshBtn->setToolTip("Reload Lua script");
     m_refreshBtn->setVisible(false);
-    connect(m_refreshBtn, &QPushButton::clicked, this, &DataSourceDialog::onRefreshClicked);
+    connect(m_refreshBtn, &QPushButton::clicked, this, &TitleSettingsDialog::onRefreshClicked);
     toolbar->addWidget(m_refreshBtn);
 
     toolbar->addStretch();
-    layout->addLayout(toolbar);
+    dsLayout->addLayout(toolbar);
 
     m_fileLabel = new QLabel("No data source loaded.");
     m_fileLabel->setWordWrap(false);
-    layout->addWidget(m_fileLabel);
+    dsLayout->addWidget(m_fileLabel);
 
     m_recordTable = new QTableWidget(0, 0);
     m_recordTable->horizontalHeader()->setStretchLastSection(true);
@@ -67,8 +77,35 @@ DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
     m_recordTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_recordTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     connect(m_recordTable, &QTableWidget::itemSelectionChanged,
-            this, &DataSourceDialog::onSelectionChanged);
-    layout->addWidget(m_recordTable, 1);
+            this, &TitleSettingsDialog::onSelectionChanged);
+    dsLayout->addWidget(m_recordTable, 1);
+
+    tabs->addTab(dataSourceTab, "Data Source");
+
+    // ── "Settings" tab ───────────────────────────────────────────────────
+    auto* settingsTab = new QWidget();
+    auto* settingsLayout = new QVBoxLayout(settingsTab);
+    settingsLayout->setContentsMargins(8, 8, 8, 8);
+    settingsLayout->setSpacing(6);
+
+    m_durationGroup = new QGroupBox("Auto-hide after");
+    m_durationGroup->setCheckable(true);
+    m_durationGroup->setChecked(false);
+    auto* durationLayout = new QHBoxLayout(m_durationGroup);
+    m_durationSpin = new QDoubleSpinBox();
+    m_durationSpin->setRange(0.1, 3600.0);
+    m_durationSpin->setSingleStep(0.5);
+    m_durationSpin->setDecimals(1);
+    m_durationSpin->setSuffix(" s");
+    m_durationSpin->setValue(5.0);
+    durationLayout->addWidget(m_durationSpin);
+    durationLayout->addStretch();
+    connect(m_durationGroup, &QGroupBox::toggled, this, &TitleSettingsDialog::onDurationChanged);
+    connect(m_durationSpin, &QDoubleSpinBox::valueChanged, this, &TitleSettingsDialog::onDurationChanged);
+    settingsLayout->addWidget(m_durationGroup);
+    settingsLayout->addStretch(1);
+
+    tabs->addTab(settingsTab, "Settings");
 
     auto* footer = new QHBoxLayout();
     footer->addStretch();
@@ -78,24 +115,37 @@ DataSourceDialog::DataSourceDialog(const QString& titleName, QWidget* parent)
     layout->addLayout(footer);
 }
 
-void DataSourceDialog::setSlot(TitleSlot* slot)
+void TitleSettingsDialog::setSlot(TitleSlot* slot)
 {
     m_slot = slot;
-    if (m_slot && !m_slot->dataSourcePath.empty()) {
+    if (!m_slot)
+        return;
+
+    if (!m_slot->dataSourcePath.empty()) {
         m_fileLabel->setText(QString::fromStdString(m_slot->dataSourcePath));
         updateRefreshVisibility();
         rebuildTable();
     }
+
+    double duration;
+    {
+        std::lock_guard<std::mutex> lock(m_slot->mutex);
+        duration = m_slot->duration;
+    }
+    QSignalBlocker groupBlocker(m_durationGroup);
+    QSignalBlocker spinBlocker(m_durationSpin);
+    m_durationGroup->setChecked(duration >= 0.0);
+    m_durationSpin->setValue(duration >= 0.0 ? duration : 5.0);
 }
 
-void DataSourceDialog::updateRefreshVisibility()
+void TitleSettingsDialog::updateRefreshVisibility()
 {
     bool isLua = m_slot && !m_slot->dataSourcePath.empty() &&
                  std::filesystem::path(m_slot->dataSourcePath).extension().string() == ".lua";
     m_refreshBtn->setVisible(isLua);
 }
 
-int DataSourceDialog::selectedRecord() const
+int TitleSettingsDialog::selectedRecord() const
 {
     auto selected = m_recordTable->selectedItems();
     if (selected.isEmpty())
@@ -103,7 +153,20 @@ int DataSourceDialog::selectedRecord() const
     return m_recordTable->row(selected.first());
 }
 
-void DataSourceDialog::onLoadClicked()
+void TitleSettingsDialog::onDurationChanged()
+{
+    if (!m_slot)
+        return;
+
+    double duration = m_durationGroup->isChecked() ? m_durationSpin->value() : -1.0;
+    {
+        std::lock_guard<std::mutex> lock(m_slot->mutex);
+        m_slot->duration = duration;
+    }
+    emit configChanged();
+}
+
+void TitleSettingsDialog::onLoadClicked()
 {
     if (!m_slot)
         return;
@@ -145,10 +208,10 @@ void DataSourceDialog::onLoadClicked()
     m_fileLabel->setText(path);
     updateRefreshVisibility();
     rebuildTable();
-    emit dataSourceChanged();
+    emit configChanged();
 }
 
-void DataSourceDialog::onRefreshClicked()
+void TitleSettingsDialog::onRefreshClicked()
 {
     if (!m_slot || m_slot->dataSourcePath.empty())
         return;
@@ -173,10 +236,10 @@ void DataSourceDialog::onRefreshClicked()
     }
 
     rebuildTable();
-    emit dataSourceChanged();
+    emit configChanged();
 }
 
-void DataSourceDialog::onSelectionChanged()
+void TitleSettingsDialog::onSelectionChanged()
 {
     int row = selectedRecord();
     if (row < 0 || !m_slot)
@@ -187,7 +250,7 @@ void DataSourceDialog::onSelectionChanged()
         m_slot->title.UpdateData();
 }
 
-void DataSourceDialog::rebuildTable()
+void TitleSettingsDialog::rebuildTable()
 {
     QSignalBlocker blocker(m_recordTable);
     m_recordTable->clearContents();

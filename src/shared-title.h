@@ -33,6 +33,7 @@ struct TitleSlot {
     std::string path;
     std::unique_ptr<IDataSource> ownedDataSource; // dock owns, title holds raw ptr
     std::string dataSourcePath;
+    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
 
     TitleSlot() = default;
     TitleSlot(const TitleSlot&) = delete;

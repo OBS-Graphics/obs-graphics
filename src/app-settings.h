@@ -19,17 +19,12 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include <string>
-#include <vector>
 
-struct TitleEntry {
-    std::string path;
-    std::string dataSourcePath;
-    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
-};
+// Global, install-wide settings — shared across every OBS profile/scene
+// collection (unlike AppConfig, which is scoped per profile/collection).
+struct AppSettings {
+    std::string editorPath;
 
-struct AppConfig {
-    std::vector<TitleEntry> titles;
-
-    static AppConfig Load(const std::string& configPath);
-    void Save(const std::string& configPath) const;
+    static AppSettings Load(const std::string& settingsPath);
+    void Save(const std::string& settingsPath) const;
 };

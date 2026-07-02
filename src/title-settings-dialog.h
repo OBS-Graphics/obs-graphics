@@ -21,24 +21,29 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include "shared-title.h"
 
 #include <QDialog>
+#include <QDoubleSpinBox>
+#include <QGroupBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QTableWidget>
 
-class DataSourceDialog : public QDialog {
+// Per-title dialog: "Data Source" tab (unchanged file/record picking) plus a
+// "Settings" tab for title-level options (currently: auto-hide duration).
+class TitleSettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    DataSourceDialog(const QString& titleName, QWidget* parent = nullptr);
+    TitleSettingsDialog(const QString& titleName, QWidget* parent = nullptr);
 
     int selectedRecord() const;
 
 signals:
-    void dataSourceChanged();
+    void configChanged();
 
 private slots:
     void onLoadClicked();
     void onRefreshClicked();
     void onSelectionChanged();
+    void onDurationChanged();
 
 private:
     void rebuildTable();
@@ -48,6 +53,8 @@ private:
     QLabel* m_fileLabel{nullptr};
     QTableWidget* m_recordTable{nullptr};
     QPushButton* m_refreshBtn{nullptr};
+    QGroupBox* m_durationGroup{nullptr};
+    QDoubleSpinBox* m_durationSpin{nullptr};
 
     friend class GraphicsDockWidget;
     void setSlot(TitleSlot* slot);

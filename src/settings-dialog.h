@@ -18,18 +18,25 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <QDialog>
+#include <QLineEdit>
 
-struct TitleEntry {
-    std::string path;
-    std::string dataSourcePath;
-    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
-};
+// App-level (not per-title) settings dialog. Currently holds a single
+// setting: the path to the external title editor executable.
+class SettingsDialog : public QDialog {
+    Q_OBJECT
+public:
+    explicit SettingsDialog(QWidget* parent = nullptr);
 
-struct AppConfig {
-    std::vector<TitleEntry> titles;
+    void setEditorPath(const QString& path);
 
-    static AppConfig Load(const std::string& configPath);
-    void Save(const std::string& configPath) const;
+signals:
+    void editorPathChanged(const QString& path);
+
+private slots:
+    void onBrowseClicked();
+    void onSaveClicked();
+
+private:
+    QLineEdit* m_editorPathEdit{nullptr};
 };

@@ -9,6 +9,18 @@ if(CMAKE_INSTALL_LIBDIR MATCHES "(CMAKE_SYSTEM_PROCESSOR)")
   string(REPLACE "CMAKE_SYSTEM_PROCESSOR" "${CMAKE_SYSTEM_PROCESSOR}" CMAKE_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
+option(LINUX_DEV_INSTALL "Install into the current user's local OBS Studio plugins directory instead of system paths" OFF)
+
+if(LINUX_DEV_INSTALL AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(
+    CMAKE_INSTALL_PREFIX
+    "$ENV{HOME}/.config/obs-studio/plugins"
+    CACHE STRING
+    "Default plugin installation directory"
+    FORCE
+  )
+endif()
+
 # Enable find_package targets to become globally available targets
 set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
 

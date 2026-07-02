@@ -102,6 +102,17 @@
         "CMAKE_COMPILE_WARNING_AS_ERROR": true,
         "ENABLE_CCACHE": true
       }
+    },
+    {
+      "name": "linux-dev",
+      "inherits": ["ubuntu-x86_64"],
+      "displayName": "Linux local dev install",
+      "description": "Debug build that installs into ~/.config/obs-studio/plugins for local testing",
+      "binaryDir": "${sourceDir}/build_linux_dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LINUX_DEV_INSTALL": true
+      }
     }
   ],
   "buildPresets": [
@@ -146,6 +157,13 @@
       "displayName": "Ubuntu x86_64 CI",
       "description": "Ubuntu CI build for x86_64",
       "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "linux-dev",
+      "configurePreset": "linux-dev",
+      "displayName": "Linux local dev install",
+      "description": "Debug build for local dev install into ~/.config/obs-studio/plugins",
+      "configuration": "Debug"
     }
   ]
 }
