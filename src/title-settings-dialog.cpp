@@ -70,6 +70,16 @@ TitleSettingsDialog::TitleSettingsDialog(const QString& titleName, QWidget* pare
     m_fileLabel->setWordWrap(false);
     dsLayout->addWidget(m_fileLabel);
 
+    m_scriptErrorLabel = new QLabel();
+    m_scriptErrorLabel->setWordWrap(true);
+    m_scriptErrorLabel->setStyleSheet("color: #b42218;");
+    m_scriptErrorLabel->setVisible(false);
+    dsLayout->addWidget(m_scriptErrorLabel);
+
+    m_scriptErrorTimer = new QTimer(this);
+    m_scriptErrorTimer->setInterval(250); // matches ScriptDataSource's default _poll_interval
+    connect(m_scriptErrorTimer, &QTimer::timeout, this, &TitleSettingsDialog::updateScriptErrorLabel);
+
     m_recordTable = new QTableWidget(0, 0);
     m_recordTable->horizontalHeader()->setStretchLastSection(true);
     m_recordTable->verticalHeader()->setVisible(false);
@@ -126,6 +136,7 @@ void TitleSettingsDialog::setSlot(TitleSlot* slot)
         updateRefreshVisibility();
         rebuildTable();
     }
+    updateScriptErrorLabel();
 
     double duration;
     {
@@ -143,6 +154,41 @@ void TitleSettingsDialog::updateRefreshVisibility()
     bool isLua = m_slot && !m_slot->dataSourcePath.empty() &&
                  std::filesystem::path(m_slot->dataSourcePath).extension().string() == ".lua";
     m_refreshBtn->setVisible(isLua);
+}
+
+void TitleSettingsDialog::showEvent(QShowEvent* event)
+{
+    QDialog::showEvent(event);
+    updateScriptErrorLabel();
+    m_scriptErrorTimer->start();
+}
+
+void TitleSettingsDialog::hideEvent(QHideEvent* event)
+{
+    m_scriptErrorTimer->stop();
+    QDialog::hideEvent(event);
+}
+
+void TitleSettingsDialog::updateScriptErrorLabel()
+{
+    if (!m_slot) {
+        m_scriptErrorLabel->setVisible(false);
+        return;
+    }
+
+    IDataSource* ds = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(m_slot->mutex);
+        ds = m_slot->ownedDataSource.get();
+    }
+
+    auto* script = dynamic_cast<ScriptDataSource*>(ds);
+    if (script && script->LoadFailed()) {
+        m_scriptErrorLabel->setText(QString::fromStdString(script->GetLoadError()));
+        m_scriptErrorLabel->setVisible(true);
+    } else {
+        m_scriptErrorLabel->setVisible(false);
+    }
 }
 
 int TitleSettingsDialog::selectedRecord() const
@@ -208,6 +254,7 @@ void TitleSettingsDialog::onLoadClicked()
     m_fileLabel->setText(path);
     updateRefreshVisibility();
     rebuildTable();
+    updateScriptErrorLabel();
     emit configChanged();
 }
 
@@ -236,6 +283,7 @@ void TitleSettingsDialog::onRefreshClicked()
     }
 
     rebuildTable();
+    updateScriptErrorLabel();
     emit configChanged();
 }
 

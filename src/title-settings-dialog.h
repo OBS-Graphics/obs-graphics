@@ -23,9 +23,12 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QGroupBox>
+#include <QHideEvent>
 #include <QLabel>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QTableWidget>
+#include <QTimer>
 
 // Per-title dialog: "Data Source" tab (unchanged file/record picking) plus a
 // "Settings" tab for title-level options (currently: auto-hide duration).
@@ -39,11 +42,16 @@ public:
 signals:
     void configChanged();
 
+protected:
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
+
 private slots:
     void onLoadClicked();
     void onRefreshClicked();
     void onSelectionChanged();
     void onDurationChanged();
+    void updateScriptErrorLabel();
 
 private:
     void rebuildTable();
@@ -51,10 +59,12 @@ private:
 
     TitleSlot* m_slot{nullptr};
     QLabel* m_fileLabel{nullptr};
+    QLabel* m_scriptErrorLabel{nullptr};
     QTableWidget* m_recordTable{nullptr};
     QPushButton* m_refreshBtn{nullptr};
     QGroupBox* m_durationGroup{nullptr};
     QDoubleSpinBox* m_durationSpin{nullptr};
+    QTimer* m_scriptErrorTimer{nullptr};
 
     friend class GraphicsDockWidget;
     void setSlot(TitleSlot* slot);
