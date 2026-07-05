@@ -295,10 +295,15 @@ jobs:
       - run:
           name: Package (ZIP)
           command: |
+            $ErrorActionPreference = "Stop"
             if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
             $tag = $env:CIRCLE_TAG
             New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-            Compress-Archive -Path dist -DestinationPath "artifacts\plugin-$tag-windows-x64.zip"
+            7z a -tzip "artifacts\plugin-$tag-windows-x64.zip" ".\dist\*" -mx=5
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "7z packaging failed with exit code $LASTEXITCODE"
+              exit 1
+            }
       - store_artifacts:
           path: artifacts
           destination: releases
