@@ -22,12 +22,18 @@ function(set_target_properties_plugin target)
 
   set_target_properties(${target} PROPERTIES VERSION 0 SOVERSION ${PLUGIN_VERSION})
 
-  install(TARGETS ${target} RUNTIME DESTINATION "${target}/bin/64bit" LIBRARY DESTINATION "${target}/bin/64bit")
+  install(
+    TARGETS ${target}
+    COMPONENT Runtime
+    RUNTIME DESTINATION "${target}/bin/64bit"
+    LIBRARY DESTINATION "${target}/bin/64bit"
+  )
 
   install(
     FILES "$<TARGET_PDB_FILE:${target}>"
     CONFIGURATIONS RelWithDebInfo Debug Release
     DESTINATION "${target}/bin/64bit"
+    COMPONENT Runtime
     OPTIONAL
   )
 
@@ -75,7 +81,12 @@ function(target_install_resources target)
       source_group("Resources/${relative_path}" FILES "${data_file}")
     endforeach()
 
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/" DESTINATION "${target}/data" USE_SOURCE_PERMISSIONS)
+    install(
+      DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
+      DESTINATION "${target}/data"
+      COMPONENT Runtime
+      USE_SOURCE_PERMISSIONS
+    )
 
     add_custom_command(
       TARGET ${target}
