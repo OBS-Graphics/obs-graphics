@@ -30,7 +30,7 @@ src/                    OBS plugin sources
   graphics-dock.h/cpp   OBS dock widget (scene/data-source management)
   app-config.h/cpp      Plugin configuration (scene path, data sources)
   plugin-support.h      OBS logging helpers
-engine/                 Submodule: obs-graphics-engine
+engine/                 Submodule: streamcanvas-engine
 cmake/                  OBS cmake build infrastructure
 ```
 
