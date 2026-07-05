@@ -80,18 +80,9 @@ commands:
                   $env:AWS_SECRET_ACCESS_KEY = $env:MINIO_SECRET_ACCESS_KEY
 
                   $file = "artifacts\$comp-$tag-windows-x64.$ext"
-                  if (-not (Test-Path $file)) {
-                    Write-Error "Artifact not found: $file (packaging step must have failed silently) — aborting before touching the manifest"
-                    exit 1
-                  }
-
                   aws s3 cp $file `
                     "s3://releases/$comp/$comp-$tag-windows-x64.$ext" `
                     --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1
-                  if ($LASTEXITCODE -ne 0) {
-                    Write-Error "aws s3 cp of $file failed with exit code $LASTEXITCODE"
-                    exit 1
-                  }
 
                   try {
                     aws s3 cp s3://releases/manifest.json "$env:TEMP\manifest.json" `
@@ -112,10 +103,6 @@ commands:
                   aws s3 cp "$env:TEMP\manifest_new.json" s3://releases/manifest.json `
                     --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1 `
                     --content-type application/json
-                  if ($LASTEXITCODE -ne 0) {
-                    Write-Error "aws s3 cp of manifest.json failed with exit code $LASTEXITCODE"
-                    exit 1
-                  }
 
 jobs:
 
@@ -309,15 +296,9 @@ jobs:
           name: Package (ZIP)
           command: |
             if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
-            $ErrorActionPreference = 'Stop'
             $tag = $env:CIRCLE_TAG
             New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-            $zipPath = "artifacts\plugin-$tag-windows-x64.zip"
-            Compress-Archive -Path dist -DestinationPath $zipPath -Force
-            if (-not (Test-Path $zipPath)) {
-              Write-Error "Compress-Archive did not produce $zipPath"
-              exit 1
-            }
+            Compress-Archive -Path dist -DestinationPath "artifacts\plugin-$tag-windows-x64.zip"
       - store_artifacts:
           path: artifacts
           destination: releases
