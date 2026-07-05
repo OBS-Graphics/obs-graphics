@@ -24,16 +24,10 @@ function(set_target_properties_plugin target)
   )
 
   if(LINUX_DEV_INSTALL)
-    install(
-      TARGETS ${target}
-      COMPONENT Runtime
-      RUNTIME DESTINATION "${target}/bin/64bit"
-      LIBRARY DESTINATION "${target}/bin/64bit"
-    )
+    install(TARGETS ${target} RUNTIME DESTINATION "${target}/bin/64bit" LIBRARY DESTINATION "${target}/bin/64bit")
   else()
     install(
       TARGETS ${target}
-      COMPONENT Runtime
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/obs-plugins
     )
@@ -79,17 +73,11 @@ function(target_install_resources target)
     endforeach()
 
     if(LINUX_DEV_INSTALL)
-      install(
-        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
-        DESTINATION "${target}/data"
-        COMPONENT Runtime
-        USE_SOURCE_PERMISSIONS
-      )
+      install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/" DESTINATION "${target}/data" USE_SOURCE_PERMISSIONS)
     else()
       install(
         DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/data/"
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/obs/obs-plugins/${target}
-        COMPONENT Runtime
         USE_SOURCE_PERMISSIONS
       )
     endif()
