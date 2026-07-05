@@ -2,6 +2,7 @@
   "dependencies": [
     "cairo",
     "pango",
-    "minizip"
+    "minizip",
+    "openssl"
   ]
 }

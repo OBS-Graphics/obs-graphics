@@ -130,7 +130,7 @@ jobs:
               cmake ninja-build pkg-config ccache \
               libobs-dev \
               qt6-base-dev libqt6svg6-dev qt6-tools-dev \
-              libcairo2-dev libpango1.0-dev libminizip-dev
+              libcairo2-dev libpango1.0-dev libminizip-dev libssl-dev
       - restore_cache:
           keys:
             - cpm-sources-v1
