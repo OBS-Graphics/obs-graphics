@@ -24,9 +24,9 @@ function(set_target_properties_plugin target)
 
   install(
     TARGETS ${target}
+    RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
     RUNTIME DESTINATION "${target}/bin/64bit"
     LIBRARY DESTINATION "${target}/bin/64bit"
-    RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
   )
 
   install(
