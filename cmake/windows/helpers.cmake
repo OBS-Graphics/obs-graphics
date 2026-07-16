@@ -22,13 +22,31 @@ function(set_target_properties_plugin target)
 
   set_target_properties(${target} PROPERTIES VERSION 0 SOVERSION ${PLUGIN_VERSION})
 
-  install(TARGETS ${target} RUNTIME DESTINATION "${target}/bin/64bit" LIBRARY DESTINATION "${target}/bin/64bit")
+  install(
+    TARGETS ${target}
+    RUNTIME DESTINATION "${target}/bin/64bit"
+    LIBRARY DESTINATION "${target}/bin/64bit"
+    RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
+  )
 
   install(
     FILES "$<TARGET_PDB_FILE:${target}>"
     CONFIGURATIONS RelWithDebInfo Debug Release
     DESTINATION "${target}/bin/64bit"
     OPTIONAL
+  )
+
+  # The plugin dynamically links vcpkg-built DLLs (OpenSSL, Cairo, Pango and
+  # their transitive glib/harfbuzz/freetype dependencies, minizip) that OBS
+  # itself does not ship, unlike Qt6 which OBS already has loaded in-process.
+  # Without these colocated next to the plugin DLL, LoadLibrary fails on any
+  # machine that doesn't happen to have vcpkg's x64-windows bin dir on PATH.
+  install(
+    RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
+    DESTINATION "${target}/bin/64bit"
+    PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
+    POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
+    DIRECTORIES "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin"
   )
 
   if(TARGET plugin-support)
