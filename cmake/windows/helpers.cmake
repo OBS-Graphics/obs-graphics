@@ -49,7 +49,7 @@ function(set_target_properties_plugin target)
   install(
     RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
     DESTINATION "${target}/bin/64bit"
-    PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "^Qt6.*\\.dll$" "^obs\\.dll$" "^obs-frontend-api\\.dll$"
+    PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "^qt6.*\\.dll$" "^obs\\.dll$" "^obs-frontend-api\\.dll$"
     POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
     DIRECTORIES "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin"
   )
