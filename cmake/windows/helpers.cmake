@@ -41,10 +41,15 @@ function(set_target_properties_plugin target)
   # itself does not ship, unlike Qt6 which OBS already has loaded in-process.
   # Without these colocated next to the plugin DLL, LoadLibrary fails on any
   # machine that doesn't happen to have vcpkg's x64-windows bin dir on PATH.
+  #
+  # Qt6*.dll, obs.dll, and obs-frontend-api.dll are provided by the OBS host
+  # process itself and aren't present in vcpkg's bin dir, so they must be
+  # pre-excluded: GET_RUNTIME_DEPENDENCIES treats any DLL it can't locate as
+  # an unresolved dependency and fails the install step otherwise.
   install(
     RUNTIME_DEPENDENCY_SET ${target}_runtime_deps
     DESTINATION "${target}/bin/64bit"
-    PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-"
+    PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" "^Qt6.*\\.dll$" "^obs\\.dll$" "^obs-frontend-api\\.dll$"
     POST_EXCLUDE_REGEXES ".*system32/.*\\.dll"
     DIRECTORIES "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin"
   )
