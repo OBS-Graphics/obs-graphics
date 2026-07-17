@@ -165,7 +165,15 @@ jobs:
           command: |
             if [ -z "$CIRCLE_TAG" ]; then echo "Not a tag — skipping"; exit 0; fi
             mkdir -p artifacts
-            tar -czf "artifacts/plugin-${CIRCLE_TAG}-linux-x86_64.tar.gz" -C dist .
+            # Only the obs-plugins dirs are the actual plugin; the rest of
+            # dist/ is install() output from CPM-fetched dependencies (curl,
+            # mbedtls, ...) that isn't meant to ship to end users.
+            plugin_dirs=$(cd dist && find . -type d -name obs-plugins | sed 's#^\./##')
+            if [ -z "$plugin_dirs" ]; then
+              echo "No obs-plugins directories found under dist/ — packaging aborted" >&2
+              exit 1
+            fi
+            tar -czf "artifacts/plugin-${CIRCLE_TAG}-linux-x86_64.tar.gz" -C dist $plugin_dirs
       - store_artifacts:
           path: artifacts
           destination: releases
@@ -298,10 +306,23 @@ jobs:
             $ErrorActionPreference = "Stop"
             if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
             $tag = $env:CIRCLE_TAG
+            $root = $PWD.Path
             New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-            7z a -tzip "artifacts\plugin-$tag-windows-x64.zip" ".\dist\*" -mx=5
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "7z packaging failed with exit code $LASTEXITCODE"
+            $zipPath = Join-Path $root "artifacts\plugin-$tag-windows-x64.zip"
+            $pluginDir = Join-Path $root "dist\stream-canvas"
+            if (-not (Test-Path $pluginDir)) {
+              Write-Error "$pluginDir not found — packaging aborted"
+              exit 1
+            }
+            # Only dist\stream-canvas is the actual plugin; dist\bin, \include,
+            # \lib, \share are install() output from CPM-fetched dependencies
+            # (curl, mbedtls, ...) that isn't meant to ship to end users.
+            Push-Location (Join-Path $root "dist")
+            7z a -tzip $zipPath ".\stream-canvas" -mx=5
+            $exitCode = $LASTEXITCODE
+            Pop-Location
+            if ($exitCode -ne 0) {
+              Write-Error "7z packaging failed with exit code $exitCode"
               exit 1
             }
       - store_artifacts:
