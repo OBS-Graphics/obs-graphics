@@ -21,6 +21,17 @@ endif()
 
 project(stream-canvas VERSION ${_git_tag_version})
 
+# Headless unit tests for the plugin logic that is pure/host-free (AppConfig
+# JSON load/save): no OBS, no Qt. Default OFF so it never affects the normal
+# plugin build; see the gated block at the bottom of this file.
+#
+# Deliberately NOT named BUILD_TESTS: engine/CMakeLists.txt already declares its
+# own option by that name, and CMake options are process-wide cache variables, so
+# a shared name would make -D<opt>=ON here silently also build the engine's suite
+# (pulling in SDL3/curl/OpenSSL). The two are independent — set both if you want
+# both.
+option(PLUGIN_BUILD_TESTS "Build headless plugin unit tests (no OBS, no Qt)" OFF)
+
 include(compilerconfig)
 include(defaults)
 include(helpers)
@@ -42,8 +53,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 find_package(obs-frontend-api REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 
-find_package(Qt6 COMPONENTS Widgets Core Svg REQUIRED)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg qlementine-icons)
+find_package(Qt6 COMPONENTS Widgets Core Svg Concurrent REQUIRED)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Concurrent qlementine-icons)
 target_compile_options(
   ${CMAKE_PROJECT_NAME}
   PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>
@@ -64,6 +75,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/shared-title.cpp
     src/app-config.cpp
     src/app-settings.cpp
+    src/ui-util.h
+    src/ui-util.cpp
     src/settings-dialog.cpp
     src/title-settings-dialog.cpp
     src/graphics-dock.cpp
@@ -74,4 +87,55 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE engine)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME})
+
+# ── Headless unit tests (no OBS, no Qt) ─────────────────────────────────────
+# Only src/app-config.cpp (JSON config load/save) is pure/host-free;
+# everything else in src/ needs a live OBS host or a Qt event loop. Mirrors
+# engine/tests/: plain assert-style console binaries whose main() returns 0
+# on success / 1 on failure, registered with ctest.
+# `nlohmann_json` already exists as an INTERFACE target from
+# add_subdirectory(engine) above regardless of the engine's own BUILD_TESTS --
+# reused here rather than fetched a second time.
+if(PLUGIN_BUILD_TESTS)
+    enable_testing()
+
+    # engine/CMakeLists.txt already CPMAddPackage()s nlohmann_json, but as an
+    # IMPORTED (non-GLOBAL) target it's only visible inside that subdirectory
+    # scope, not here. Re-invoking CPMAddPackage with the same NAME/URL does
+    # not re-download (CPM caches by name in a CACHE INTERNAL var) -- it just
+    # hands back the already-populated source dir, which is wrapped in a
+    # target scoped to this directory instead.
+    CPMAddPackage(
+        NAME nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.12.0/include.zip
+        DOWNLOAD_ONLY YES
+    )
+    add_library(plugin_test_json INTERFACE)
+    target_include_directories(plugin_test_json INTERFACE ${nlohmann_json_SOURCE_DIR}/include)
+
+    # app-config.cpp now depends on uuid::GenerateV4() (engine/uuid.h); pull
+    # in engine/uuid.cpp directly rather than the full `engine` target, since
+    # this test lib deliberately stays OBS/Qt-free. uuid.cpp is verified
+    # stdlib-only (<array>, <cstdint>, <random>), so it doesn't drag in any
+    # of engine's own heavier dependencies (Lua, curl, etc).
+    add_library(plugin_testable STATIC
+        src/app-config.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/engine/uuid.cpp
+    )
+    target_include_directories(plugin_testable PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    target_link_libraries(plugin_testable PUBLIC plugin_test_json)
+    target_compile_features(plugin_testable PUBLIC cxx_std_20)
+
+    function(add_plugin_test name)
+        add_executable(${name} tests/${name}.cpp)
+        target_link_libraries(${name} PRIVATE plugin_testable)
+        target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+        add_test(NAME ${name} COMMAND ${name})
+    endfunction()
+
+    add_plugin_test(test_app_config)
+endif()
 

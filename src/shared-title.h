@@ -18,30 +18,37 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include "engine/scene.h"
+#include "engine/data-pool.h"
 #include "engine/data-source.h"
 #include "engine/title.h"
-#include <atomic>
-#include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 
-struct TitleSlot {
-    Title title;
-    std::mutex mutex;
-    std::atomic<bool> loaded{false};
-    std::string path;
-    std::unique_ptr<IDataSource> ownedDataSource; // dock owns, title holds raw ptr
-    std::string dataSourcePath;
-    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
+// The one Scene this plugin runs: owns every Title and the DataPool behind it.
+extern Scene g_scene;
 
-    TitleSlot() = default;
-    TitleSlot(const TitleSlot&) = delete;
-    TitleSlot& operator=(const TitleSlot&) = delete;
+// Guards every access to g_scene, and to any Title it owns:
+// 1. Any read or write of g_scene, or of a Title* it owns, happens under this
+//    mutex. engine/scene.h documents Scene as single-threaded; this mutex is
+//    how the Qt UI thread and the OBS render thread take turns being that
+//    thread.
+// 2. DataPool calls that don't touch a Title (Pool().Add/Remove/Has/Ids/Get/
+//    Data/DataBlocking/DataVersion) are individually thread-safe on their own
+//    and must NOT be made while holding this mutex when they can block
+//    (DataBlocking) — see engine/data-pool.h's own threading note.
+// 3. Title::onTriggerIn/onTriggerOut subscribers fire with this mutex held
+//    (render thread, inside Scene::Tick) — they must stay non-blocking.
+//    Qt::QueuedConnection only, never BlockingQueuedConnection.
+extern std::mutex g_scene_mutex;
+
+// Host-side row metadata for one title. Deliberately Qt-free so the dialogs
+// (title-settings-dialog.h) can include this header without pulling in the
+// dock widget.
+struct TitleRow {
+    Title* title{nullptr};     // borrowed from g_scene; valid until RemoveTitle
+    std::string id;            // persisted uuid, == title->id
+    std::string path;          // .ogt path
+    std::string dataSourceId;  // pool source uuid; empty = unbound
+    double duration{-1.0};     // seconds; -1.0 = auto-hide disabled
 };
-
-using TitleSlotList = std::vector<std::shared_ptr<TitleSlot>>;
-
-// Atomic snapshot: UI thread atomically replaces the list; render thread atomically reads it.
-// The shared_ptr ensures in-flight slots stay alive even after removal from the list.
-extern std::atomic<std::shared_ptr<TitleSlotList>> g_title_slots;

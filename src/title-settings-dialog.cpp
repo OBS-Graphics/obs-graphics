@@ -17,18 +17,17 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "title-settings-dialog.h"
+#include "engine/data-pool.h"
 #include "engine/script.h"
 
-#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
-#include <QMessageBox>
-#include <QPushButton>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 #include "icons.h"
+#include "ui-util.h"
 
 #include <filesystem>
 
@@ -52,23 +51,13 @@ TitleSettingsDialog::TitleSettingsDialog(const QString& titleName, QWidget* pare
     dsLayout->setContentsMargins(8, 8, 8, 8);
     dsLayout->setSpacing(6);
 
-    auto* toolbar = new QHBoxLayout();
-    auto* loadBtn = new QPushButton("Load Data Source...");
-    connect(loadBtn, &QPushButton::clicked, this, &TitleSettingsDialog::onLoadClicked);
-    toolbar->addWidget(loadBtn);
-
-    m_refreshBtn = new QPushButton(themedIcon(Icons16::Action_Refresh), "Refresh");
-    m_refreshBtn->setToolTip("Reload Lua script");
-    m_refreshBtn->setVisible(false);
-    connect(m_refreshBtn, &QPushButton::clicked, this, &TitleSettingsDialog::onRefreshClicked);
-    toolbar->addWidget(m_refreshBtn);
-
-    toolbar->addStretch();
-    dsLayout->addLayout(toolbar);
-
-    m_fileLabel = new QLabel("No data source loaded.");
-    m_fileLabel->setWordWrap(false);
-    dsLayout->addWidget(m_fileLabel);
+    auto* pickerRow = new QHBoxLayout();
+    pickerRow->addWidget(new QLabel("Data Source:"));
+    m_dataSourceCombo = new QComboBox();
+    connect(m_dataSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &TitleSettingsDialog::onDataSourceChanged);
+    pickerRow->addWidget(m_dataSourceCombo, 1);
+    dsLayout->addLayout(pickerRow);
 
     m_scriptErrorLabel = new QLabel();
     m_scriptErrorLabel->setWordWrap(true);
@@ -125,35 +114,47 @@ TitleSettingsDialog::TitleSettingsDialog(const QString& titleName, QWidget* pare
     layout->addLayout(footer);
 }
 
-void TitleSettingsDialog::setSlot(TitleSlot* slot)
+void TitleSettingsDialog::setRow(TitleRow* row)
 {
-    m_slot = slot;
-    if (!m_slot)
+    m_row = row;
+    if (!m_row)
         return;
 
-    if (!m_slot->dataSourcePath.empty()) {
-        m_fileLabel->setText(QString::fromStdString(m_slot->dataSourcePath));
-        updateRefreshVisibility();
-        rebuildTable();
-    }
+    refreshDataSourceList(); // also rebuilds the record table
     updateScriptErrorLabel();
 
-    double duration;
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        duration = m_slot->duration;
-    }
+    // m_row->duration is a plain host-side field (not on Title), so no scene
+    // lock is needed to read it.
+    double duration = m_row->duration;
     QSignalBlocker groupBlocker(m_durationGroup);
     QSignalBlocker spinBlocker(m_durationSpin);
     m_durationGroup->setChecked(duration >= 0.0);
     m_durationSpin->setValue(duration >= 0.0 ? duration : 5.0);
 }
 
-void TitleSettingsDialog::updateRefreshVisibility()
+void TitleSettingsDialog::refreshDataSourceList()
 {
-    bool isLua = m_slot && !m_slot->dataSourcePath.empty() &&
-                 std::filesystem::path(m_slot->dataSourcePath).extension().string() == ".lua";
-    m_refreshBtn->setVisible(isLua);
+    if (!m_row)
+        return;
+
+    QSignalBlocker blocker(m_dataSourceCombo);
+    m_dataSourceCombo->clear();
+    m_dataSourceCombo->addItem("(none)", QString());
+
+    for (auto& id : g_scene.Pool().Ids()) {
+        IDataSource* src = g_scene.Pool().Get(id);
+        if (!src)
+            continue;
+        QString qid = QString::fromStdString(id);
+        QString path = QString::fromStdString(src->GetFilePath());
+        m_dataSourceCombo->addItem(displayNameForPath(path, path), qid);
+        m_dataSourceCombo->setItemData(m_dataSourceCombo->count() - 1, path, Qt::ToolTipRole);
+    }
+
+    int idx = m_dataSourceCombo->findData(QString::fromStdString(m_row->dataSourceId));
+    m_dataSourceCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+
+    rebuildTable();
 }
 
 void TitleSettingsDialog::showEvent(QShowEvent* event)
@@ -171,18 +172,15 @@ void TitleSettingsDialog::hideEvent(QHideEvent* event)
 
 void TitleSettingsDialog::updateScriptErrorLabel()
 {
-    if (!m_slot) {
+    if (!m_row) {
         m_scriptErrorLabel->setVisible(false);
         return;
     }
 
-    IDataSource* ds = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        ds = m_slot->ownedDataSource.get();
-    }
-
-    auto* script = dynamic_cast<ScriptDataSource*>(ds);
+    // g_scene.Pool().Get() is the documented host-UI-only escape hatch for
+    // exactly this kind of dynamic_cast; safe to call from the UI thread
+    // without the scene lock — it doesn't touch any Title.
+    auto* script = dynamic_cast<ScriptDataSource*>(g_scene.Pool().Get(m_row->dataSourceId));
     if (script && script->LoadFailed()) {
         m_scriptErrorLabel->setText(QString::fromStdString(script->GetLoadError()));
         m_scriptErrorLabel->setVisible(true);
@@ -201,85 +199,35 @@ int TitleSettingsDialog::selectedRecord() const
 
 void TitleSettingsDialog::onDurationChanged()
 {
-    if (!m_slot)
+    if (!m_row)
         return;
 
     double duration = m_durationGroup->isChecked() ? m_durationSpin->value() : -1.0;
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        m_slot->duration = duration;
+    m_row->duration = duration;
+    // Also mirror onto the live Title so a currently-visible title honours a
+    // changed auto-hide immediately, rather than only on its next TriggerIn.
+    if (m_row->title) {
+        std::lock_guard<std::mutex> lock(g_scene_mutex);
+        m_row->title->duration = duration;
     }
     emit configChanged();
 }
 
-void TitleSettingsDialog::onLoadClicked()
+void TitleSettingsDialog::onDataSourceChanged(int index)
 {
-    if (!m_slot)
+    if (!m_row || index < 0)
         return;
 
-    QString path = QFileDialog::getOpenFileName(
-        this, "Load Data Source", QString(),
-        "Data Files (*.json *.csv *.lua);;JSON Files (*.json);;CSV Files (*.csv);;Lua Scripts (*.lua)");
-    if (path.isEmpty())
-        return;
+    std::string id = m_dataSourceCombo->itemData(index).toString().toStdString();
 
-    std::string pathStr = path.toStdString();
-    std::string ext = std::filesystem::path(pathStr).extension().string();
-
-    std::unique_ptr<IDataSource> ds;
-    try {
-        if (ext == ".csv")
-            ds = std::make_unique<CsvFileDataSource>(pathStr);
-        else if (ext == ".lua")
-            ds = std::make_unique<ScriptDataSource>(pathStr);
-        else
-            ds = std::make_unique<JsonFileDataSource>(pathStr);
-    } catch (const std::exception& e) {
-        QMessageBox::critical(this, "Failed to Load Data Source",
-                              QString("Could not load:\n%1").arg(e.what()));
-        return;
-    } catch (...) {
-        QMessageBox::critical(this, "Failed to Load Data Source",
-                              "Could not load: unknown error.");
-        return;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        m_slot->ownedDataSource = std::move(ds);
-        m_slot->title.dataSource = m_slot->ownedDataSource.get();
-        m_slot->dataSourcePath = pathStr;
-    }
-
-    m_fileLabel->setText(path);
-    updateRefreshVisibility();
-    rebuildTable();
-    updateScriptErrorLabel();
-    emit configChanged();
-}
-
-void TitleSettingsDialog::onRefreshClicked()
-{
-    if (!m_slot || m_slot->dataSourcePath.empty())
-        return;
-
-    std::unique_ptr<IDataSource> ds;
-    try {
-        ds = std::make_unique<ScriptDataSource>(m_slot->dataSourcePath);
-    } catch (const std::exception& e) {
-        QMessageBox::critical(this, "Failed to Reload Lua Script",
-                              QString("Could not reload:\n%1").arg(e.what()));
-        return;
-    } catch (...) {
-        QMessageBox::critical(this, "Failed to Reload Lua Script",
-                              "Could not reload: unknown error.");
-        return;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        m_slot->ownedDataSource = std::move(ds);
-        m_slot->title.dataSource = m_slot->ownedDataSource.get();
+    // No Bind/Unbind exists any more — a Title binds to a source by plain
+    // assignment of dataSourceId (empty = unbound). Update the host-side row
+    // first (no lock needed, it isn't part of g_scene), then take the scene
+    // lock just to mutate the live Title.
+    m_row->dataSourceId = id;
+    if (m_row->title) {
+        std::lock_guard<std::mutex> lock(g_scene_mutex);
+        m_row->title->dataSourceId = id;
     }
 
     rebuildTable();
@@ -290,12 +238,36 @@ void TitleSettingsDialog::onRefreshClicked()
 void TitleSettingsDialog::onSelectionChanged()
 {
     int row = selectedRecord();
-    if (row < 0 || !m_slot)
+    if (row < 0 || !m_row || !m_row->title)
         return;
-    std::lock_guard<std::mutex> lock(m_slot->mutex);
-    m_slot->title.dataRecordIndex = static_cast<size_t>(row);
-    if (m_slot->title.state == TitleState::Hidden)
-        m_slot->title.UpdateData();
+
+    // Resolve records with no lock held — Pool().Data() only touches the
+    // pool's own mutex and never blocks. Never call DataBlocking() while
+    // holding g_scene_mutex.
+    std::vector<Record> recs;
+    if (!m_row->dataSourceId.empty())
+        recs = g_scene.Pool().Data(m_row->dataSourceId);
+
+    std::lock_guard<std::mutex> lock(g_scene_mutex);
+    m_row->title->dataRecordIndex = static_cast<size_t>(row);
+
+    // Apply the newly-selected record whatever the title's state — picking a
+    // record in this dialog is a direct request to see that record, so a
+    // title already on screen must swap to it now, not on its next TriggerIn.
+    //
+    // The no-arg Title::UpdateData() that Scene::Tick runs every frame while
+    // Visible won't do it for us: that one pulls via DataPool::DataIfChanged,
+    // and changing which record we index into doesn't move the source's cache
+    // version, so it reads as unchanged and applies nothing. Hence this
+    // explicit two-arg apply. For the same reason it also won't be clobbered
+    // on the next tick.
+    //
+    // instant only when nothing is on screen: a hidden title has no visible
+    // "before" to animate away from, while a visible one should run the
+    // element data-in/data-out animations, which is what the animated
+    // SetContent path drives.
+    const bool hidden = m_row->title->state == TitleState::Hidden;
+    m_row->title->UpdateData(recs, /*instant=*/hidden);
 }
 
 void TitleSettingsDialog::rebuildTable()
@@ -305,23 +277,10 @@ void TitleSettingsDialog::rebuildTable()
     m_recordTable->setRowCount(0);
     m_recordTable->setColumnCount(0);
 
-    if (!m_slot)
+    if (!m_row || m_row->dataSourceId.empty())
         return;
 
-    IDataSource* ds = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        ds = m_slot->ownedDataSource.get();
-    }
-    if (!ds)
-        return;
-
-    std::vector<Record> records;
-    try {
-        records = ds->GetData();
-    } catch (...) {
-        return;
-    }
+    std::vector<Record> records = g_scene.Pool().Data(m_row->dataSourceId);
     if (records.empty())
         return;
 
@@ -355,9 +314,9 @@ void TitleSettingsDialog::rebuildTable()
 
     // Restore selected record
     size_t recIdx = 0;
-    {
-        std::lock_guard<std::mutex> lock(m_slot->mutex);
-        recIdx = m_slot->title.dataRecordIndex;
+    if (m_row->title) {
+        std::lock_guard<std::mutex> lock(g_scene_mutex);
+        recIdx = m_row->title->dataRecordIndex;
     }
     if ((int)recIdx < m_recordTable->rowCount())
         m_recordTable->selectRow(static_cast<int>(recIdx));

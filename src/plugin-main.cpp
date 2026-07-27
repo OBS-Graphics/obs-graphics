@@ -18,11 +18,13 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include "graphics-dock.h"
 #include "icons.h"
+#include "shared-title.h"
 #include <obs-frontend-api.h>
 #include <obs-module.h>
 #include <plugin-support.h>
 
 #include <filesystem>
+#include <mutex>
 #include <string>
 
 OBS_DECLARE_MODULE()
@@ -32,6 +34,17 @@ extern struct obs_source_info gGraphicsSourceInfo;
 
 // Owned by the OBS frontend (Qt) once added as a dock; only ever one instance.
 static GraphicsDockWidget* gDock = nullptr;
+
+// There is exactly one g_scene but potentially many Graphics Source instances
+// in a scene collection. Ticking the Scene from source_video_tick would
+// advance every animation once per instance per frame (2 instances = 2x
+// speed); ticking it once here, globally, keeps it advancing at a single,
+// correct rate no matter how many sources render it.
+static void scene_tick(void*, float seconds)
+{
+    std::lock_guard<std::mutex> lock(g_scene_mutex);
+    g_scene.Tick(seconds);
+}
 
 // Titles are persisted per profile + scene collection, so the dock needs to
 // reload whenever OBS finishes starting up or the user switches either one.
@@ -66,6 +79,7 @@ bool obs_module_load(void)
     obs_frontend_add_dock_by_id("stream-canvas-dock", "Live Graphics Titles", gDock);
 
     obs_frontend_add_event_callback(onFrontendEvent, nullptr);
+    obs_add_tick_callback(scene_tick, nullptr);
 
     obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
     return true;
@@ -73,6 +87,9 @@ bool obs_module_load(void)
 
 void obs_module_unload(void)
 {
+    // Must come before the dock (and thus g_scene) goes away: scene_tick
+    // dereferences g_scene, so it can't still be registered afterward.
+    obs_remove_tick_callback(scene_tick, nullptr);
     obs_frontend_remove_event_callback(onFrontendEvent, nullptr);
     obs_frontend_remove_dock("stream-canvas-dock");
     gDock = nullptr;

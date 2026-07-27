@@ -22,14 +22,25 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <vector>
 
 struct TitleEntry {
+    std::string id;            // uuid; minted by Load if missing (e.g. a pre-v6 config)
     std::string path;
-    std::string dataSourcePath;
-    double duration{-1.0}; // seconds; -1.0 = auto-hide disabled
+    std::string dataSourceId;  // pool source uuid; empty = unbound
+    double duration{-1.0};     // seconds; -1.0 = auto-hide disabled
+};
+
+struct DataSourceEntry {
+    std::string id;    // uuid; minted by Load if missing (e.g. a pre-v6 config)
+    std::string path;
 };
 
 struct AppConfig {
+    std::vector<DataSourceEntry> dataSources;
     std::vector<TitleEntry> titles;
 
+    // Always returns a fully-migrated, fully-formed (every id non-empty and a
+    // valid v4 uuid) config -- callers never need to backfill an id
+    // themselves. Malformed/truncated JSON or a missing file returns an
+    // empty AppConfig rather than throwing.
     static AppConfig Load(const std::string& configPath);
     void Save(const std::string& configPath) const;
 };

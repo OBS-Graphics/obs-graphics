@@ -16,7 +16,25 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "shared-title.h"
+#include "ui-util.h"
 
-Scene g_scene;
-std::mutex g_scene_mutex;
+#include <QSize>
+#include <filesystem>
+
+QToolButton* makeIconButton(Icons16 id, const QString& tooltip)
+{
+    auto* btn = new QToolButton();
+    btn->setIcon(themedIcon(id));
+    btn->setIconSize(QSize(16, 16));
+    btn->setAutoRaise(true);
+    btn->setFixedWidth(28);
+    btn->setToolTip(tooltip);
+    return btn;
+}
+
+QString displayNameForPath(const QString& path, const QString& fallback)
+{
+    QString name = QString::fromStdString(
+        std::filesystem::path(path.toStdString()).stem().string());
+    return name.isEmpty() ? fallback : name;
+}

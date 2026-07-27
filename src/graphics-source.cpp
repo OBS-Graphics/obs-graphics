@@ -89,7 +89,7 @@ static void source_destroy(void* data)
     delete s;
 }
 
-static void source_video_tick(void* data, float seconds)
+static void source_video_tick(void* data, float /*seconds*/)
 {
     auto* s = static_cast<GraphicsSource*>(data);
 
@@ -101,20 +101,16 @@ static void source_video_tick(void* data, float seconds)
         s->needs_texture_reset = true;
     }
 
-    auto slots = g_title_slots.load();
-    if (!slots || slots->empty())
-        return;
-
     cairo_set_operator(s->cr, CAIRO_OPERATOR_CLEAR);
     cairo_paint(s->cr);
     cairo_set_operator(s->cr, CAIRO_OPERATOR_OVER);
 
-    for (auto& slot : *slots) {
-        if (!slot->loaded.load())
-            continue;
-        std::lock_guard<std::mutex> lock(slot->mutex);
-        slot->title.Tick(seconds);
-        slot->title.Render(s->cr, s->width, s->height);
+    // The Scene itself is ticked once globally (see plugin-main.cpp's
+    // scene_tick) so it advances at the same rate regardless of how many
+    // Graphics Source instances render it. This callback only draws.
+    {
+        std::lock_guard<std::mutex> lock(g_scene_mutex);
+        g_scene.Render(s->cr, s->width, s->height);
     }
 
     cairo_surface_flush(s->surface);

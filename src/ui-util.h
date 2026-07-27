@@ -16,7 +16,21 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "shared-title.h"
+#pragma once
 
-Scene g_scene;
-std::mutex g_scene_mutex;
+#include <QString>
+#include <QToolButton>
+
+#include "icons.h"
+
+// Small Qt helpers shared by the dock and both settings dialogs. Everything
+// here is presentation-only — no pool access, no I/O.
+
+// The icon-only action button used in every table's actions cell (dock title
+// rows, Data Sources rows). Centralized so the sizing/auto-raise styling is
+// defined once rather than re-typed at each call site.
+QToolButton* makeIconButton(Icons16 id, const QString& tooltip);
+
+// File stem of `path` for display, or `fallback` when the stem is empty.
+// Used for title names, data-source names and combo-box entries.
+QString displayNameForPath(const QString& path, const QString& fallback);

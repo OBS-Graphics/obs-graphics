@@ -20,23 +20,43 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include <QDialog>
 #include <QLineEdit>
+#include <QList>
+#include <QString>
+#include <QTableWidget>
 
-// App-level (not per-title) settings dialog. Currently holds a single
-// setting: the path to the external title editor executable.
+// One row of the Data Sources tab. A struct rather than a bare path so the
+// dock can hand the dialog per-source status it can't work out for itself —
+// the dialog does no I/O, so it cannot tell a live source from one whose file
+// has been deleted or unmounted.
+struct DataSourceRow {
+    QString id;            // pool key (a uuid, IDataSource::GetId())
+    QString path;          // full path; display-only, not the pool key
+    bool missing{false};   // the file is no longer present on disk
+};
+
+// App-level (not per-title) settings dialog: editor path plus the shared
+// data-source pool. The dialog owns no state and performs no file/pool I/O —
+// it only emits requests and renders whatever it's told via setDataSources().
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
     explicit SettingsDialog(QWidget* parent = nullptr);
 
     void setEditorPath(const QString& path);
+    void setDataSources(const QList<DataSourceRow>& rows); // rebuilds the table
 
 signals:
     void editorPathChanged(const QString& path);
+    void dataSourceAddRequested(const QString& path);       // a not-yet-registered source has no id
+    void dataSourceReloadRequested(const QString& id);
+    void dataSourceRemoveRequested(const QString& id);
 
 private slots:
     void onBrowseClicked();
     void onSaveClicked();
+    void onAddDataSourceClicked();
 
 private:
     QLineEdit* m_editorPathEdit{nullptr};
+    QTableWidget* m_dataSourceTable{nullptr};
 };
