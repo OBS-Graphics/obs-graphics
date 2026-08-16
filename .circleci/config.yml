@@ -3,107 +3,6 @@ version: 2.1
 orbs:
   windows: circleci/windows@5.1.1
 
-commands:
-  upload_to_minio:
-    parameters:
-      component:
-        type: string
-      linux_ext:
-        type: string
-        default: tar.gz
-      windows_ext:
-        type: string
-        default: zip
-      shell:
-        type: enum
-        enum: [bash, powershell]
-        default: bash
-    steps:
-      - when:
-          condition:
-            equal: [bash, << parameters.shell >>]
-          steps:
-            - run:
-                name: Upload << parameters.component >> (linux) to MinIO
-                command: |
-                  if [ -z "$CIRCLE_TAG" ]; then echo "Not a tag — skipping"; exit 0; fi
-                  curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-                  unzip -q /tmp/awscliv2.zip -d /tmp
-                  sudo /tmp/aws/install --update
-                  export AWS_ACCESS_KEY_ID="$MINIO_ACCESS_KEY_ID"
-                  export AWS_SECRET_ACCESS_KEY="$MINIO_SECRET_ACCESS_KEY"
-                  export COMP="<< parameters.component >>"
-                  export EXT="<< parameters.linux_ext >>"
-                  export WEXT="<< parameters.windows_ext >>"
-                  TAG="$CIRCLE_TAG"
-                  FILE="artifacts/${COMP}-${TAG}-linux-x86_64.${EXT}"
-                  aws s3 cp "$FILE" \
-                    "s3://releases/${COMP}/${COMP}-${TAG}-linux-x86_64.${EXT}" \
-                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1
-                  aws s3 cp s3://releases/manifest.json /tmp/manifest.json \
-                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1 2>/dev/null \
-                    || echo '{}' > /tmp/manifest.json
-                  python3 \<< 'PYEOF'
-                  import json, os
-                  tag  = os.environ['CIRCLE_TAG']
-                  comp = os.environ['COMP']
-                  ext  = os.environ['EXT']
-                  wext = os.environ['WEXT']
-                  try:
-                      with open('/tmp/manifest.json') as f:
-                          m = json.load(f)
-                  except Exception:
-                      m = {}
-                  m[comp] = {
-                      'linux_x86_64': f'{comp}-{tag}-linux-x86_64.{ext}',
-                      'windows_x64':  f'{comp}-{tag}-windows-x64.{wext}',
-                  }
-                  with open('/tmp/manifest.json', 'w') as f:
-                      json.dump(m, f, indent=2)
-                  PYEOF
-                  aws s3 cp /tmp/manifest.json s3://releases/manifest.json \
-                    --endpoint-url "$MINIO_S3_ENDPOINT" --region us-east-1 \
-                    --content-type application/json
-      - when:
-          condition:
-            equal: [powershell, << parameters.shell >>]
-          steps:
-            - run:
-                name: Upload << parameters.component >> (windows) to MinIO
-                shell: powershell.exe
-                command: |
-                  if (-not $env:CIRCLE_TAG) { Write-Output "Not a tag — skipping"; exit 0 }
-                  $tag  = $env:CIRCLE_TAG
-                  $comp = '<< parameters.component >>'
-                  $ext  = '<< parameters.windows_ext >>'
-                  $env:AWS_ACCESS_KEY_ID     = $env:MINIO_ACCESS_KEY_ID
-                  $env:AWS_SECRET_ACCESS_KEY = $env:MINIO_SECRET_ACCESS_KEY
-
-                  $file = "artifacts\$comp-$tag-windows-x64.$ext"
-                  aws s3 cp $file `
-                    "s3://releases/$comp/$comp-$tag-windows-x64.$ext" `
-                    --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1
-
-                  try {
-                    aws s3 cp s3://releases/manifest.json "$env:TEMP\manifest.json" `
-                      --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1 2>$null
-                  } catch {}
-                  if (-not (Test-Path "$env:TEMP\manifest.json")) {
-                    '{}' | Set-Content "$env:TEMP\manifest.json"
-                  }
-
-                  $linExt = '<< parameters.linux_ext >>'
-                  $m = Get-Content "$env:TEMP\manifest.json" | ConvertFrom-Json
-                  $m | Add-Member -NotePropertyName $comp -NotePropertyValue ([PSCustomObject]@{
-                    linux_x86_64 = "$comp-$tag-linux-x86_64.$linExt"
-                    windows_x64  = "$comp-$tag-windows-x64.$ext"
-                  }) -Force
-                  $m | ConvertTo-Json -Depth 5 | Set-Content "$env:TEMP\manifest_new.json"
-
-                  aws s3 cp "$env:TEMP\manifest_new.json" s3://releases/manifest.json `
-                    --endpoint-url $env:MINIO_S3_ENDPOINT --region us-east-1 `
-                    --content-type application/json
-
 jobs:
 
   build-linux:
@@ -177,8 +76,6 @@ jobs:
       - store_artifacts:
           path: artifacts
           destination: releases
-      - upload_to_minio:
-          component: plugin
 
   build-windows:
     executor:
@@ -228,7 +125,9 @@ jobs:
             - windows-cpm-sources-v1
       - run:
           name: Install build tools
-          command: choco install cmake pkgconfiglite sccache awscli -y --no-progress
+          command: |
+            choco install cmake sccache -y --no-progress
+            choco install pkgconfiglite -y --no-progress --checksum64=2038c49d23b5ca19e2218ca89f06df18fe6d870b4c6b54c0498548ef88771f6f
       - run:
           name: Bootstrap vcpkg
           command: |
@@ -328,9 +227,6 @@ jobs:
       - store_artifacts:
           path: artifacts
           destination: releases
-      - upload_to_minio:
-          component: plugin
-          shell: powershell
 
 workflows:
   build:
