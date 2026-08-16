@@ -26,6 +26,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include <QTableWidget>
 #include <QPushButton>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -39,6 +40,15 @@ struct RowWidgets {
     QToolButton* reloadBtn{nullptr};
     TitleSettingsDialog* settingsDialog{nullptr};
     bool isIn{false};
+    // True for the span of onToggle's off-thread DataBlocking call. Owned by
+    // applyRowLoading()/onToggle's continuation; refreshRowBrokenState() must
+    // not touch toggleBtn's enabled/style while this is true, so it doesn't
+    // fight the "Loading..." look.
+    bool fetching{false};
+    // Last result of checkDataSourceHealth() for this row's bound data
+    // source, refreshed by refreshRowBrokenState().
+    bool broken{false};
+    QString brokenReason;
 };
 
 // Flat dock widget: one row per loaded title, with a toggle In/Out button,
@@ -61,6 +71,10 @@ private slots:
     void onRemoveTitle(int row);
     void onAppSettingsClicked();
     void onOpenEditorClicked();
+    // Timer-driven (m_brokenStateTimer): re-checks every row's bound data
+    // source, since a ScriptDataSource's load can fail asynchronously some
+    // time after its row was created. See refreshRowBrokenState().
+    void refreshAllRowBrokenStates();
 
 private:
     void addTitleRow(std::unique_ptr<TitleRow> row);
@@ -86,6 +100,13 @@ private:
     // unclickable — for the span of onToggle's off-thread DataBlocking call.
     // Cleared by whichever applyRowState() runs next, not by a paired call.
     void applyRowLoading(int row);
+    // Recomputes m_rowWidgets[row].broken/.brokenReason from the row's bound
+    // data source (checkDataSourceHealth() in graphics-dock.cpp) and applies
+    // it: the warning icon+tooltip on the title's name cell (always), and —
+    // only when the row is idle (not mid-fetch, and currently reading "In",
+    // never "Out") — the toggle button's enabled state and look. No scene
+    // lock needed. Safe to call at any time.
+    void refreshRowBrokenState(int row);
     void updateOpenEditorEnabled();
     // Refreshes the app SettingsDialog's data-source table and every open
     // TitleSettingsDialog's combo box. Called after any mutation of
@@ -113,4 +134,11 @@ private:
     SettingsDialog* m_settingsDialog{nullptr};
     AppSettings m_settings;
     std::string m_settingsPath;
+
+    // Drives refreshAllRowBrokenStates() at the same cadence as
+    // ScriptDataSource's default poll interval / TitleSettingsDialog's own
+    // error-label timer, so a script that fails to load some time after its
+    // row was created is still caught without requiring the operator to
+    // interact with anything first.
+    QTimer* m_brokenStateTimer{nullptr};
 };

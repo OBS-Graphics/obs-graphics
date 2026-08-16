@@ -98,6 +98,35 @@ std::unique_ptr<IDataSource> tryMakeDataSource(QWidget* parent, const std::strin
     return nullptr;
 }
 
+// What "broken" means for a bound data source, shared by the title-row
+// warning icon (GraphicsDockWidget::refreshRowBrokenState) and the Data
+// Sources tab (refreshDataSourceUi): the file backing it is gone, or — for a
+// ScriptDataSource specifically — the file loaded but its Lua failed to
+// parse/run (ScriptDataSource::LoadFailed()). `src` may be nullptr (a
+// dataSourceId that no longer resolves in the pool); that counts as broken
+// too.
+struct DataSourceHealth {
+    bool broken{false};
+    QString reason; // empty when !broken
+};
+
+DataSourceHealth checkDataSourceHealth(const IDataSource* src)
+{
+    if (!src)
+        return {true, "Data source not found."};
+
+    std::error_code ec;
+    std::string path = src->GetFilePath();
+    if (!std::filesystem::exists(path, ec) || ec)
+        return {true, QString("File not found:\n%1").arg(QString::fromStdString(path))};
+
+    if (auto* script = dynamic_cast<const ScriptDataSource*>(src); script && script->LoadFailed())
+        return {true, QString("Script failed to load:\n%1")
+                           .arg(QString::fromStdString(script->GetLoadError()))};
+
+    return {false, {}};
+}
+
 // Title::Load's diagnostic is never fatal (see engine/title.h), but a
 // Warning is worth a modal when it's the direct result of a user action
 // (Add/Reload); at startup (loadConfig) neither severity may block OBS
@@ -157,6 +186,16 @@ GraphicsDockWidget::GraphicsDockWidget(QWidget* parent, std::string configDir)
     updateOpenEditorEnabled();
 
     layout->addWidget(toolbar);
+
+    // Catches a ScriptDataSource's load failing asynchronously some time
+    // after its row was created — the explicit refreshRowBrokenState() call
+    // sites (add/reload/rebind/pool mutation) can't see that on their own.
+    // Interval matches ScriptDataSource's default poll interval and
+    // TitleSettingsDialog::m_scriptErrorTimer's own cadence.
+    m_brokenStateTimer = new QTimer(this);
+    m_brokenStateTimer->setInterval(250);
+    connect(m_brokenStateTimer, &QTimer::timeout, this, &GraphicsDockWidget::refreshAllRowBrokenStates);
+    m_brokenStateTimer->start();
 
     // Title table: two columns — Title name | Actions
     m_table = new QTableWidget(0, 2);
@@ -256,6 +295,8 @@ void GraphicsDockWidget::addTitleRow(std::unique_ptr<TitleRow> row)
     // AddTitle call itself — not here, since this function runs without the
     // lock held (it needs to call rowDisplayName(), which takes the lock on
     // its own).
+
+    refreshRowBrokenState(rowIdx);
 }
 
 void GraphicsDockWidget::registerTriggerCallbacks(TitleRow* rowPtr)
@@ -310,7 +351,7 @@ void GraphicsDockWidget::applyRowState(int row, bool isIn)
     if (!isIn) {
         rw.toggleBtn->setText(" In");
         rw.toggleBtn->setIcon(themedIcon(Icons16::Media_Play));
-        rw.toggleBtn->setStyleSheet(kStyleIn);
+        refreshRowBrokenState(row); // sets kStyleIn, or the broken look if applicable
         return;
     }
 
@@ -331,6 +372,7 @@ void GraphicsDockWidget::applyRowLoading(int row)
         return;
 
     auto& rw = m_rowWidgets[row];
+    rw.fetching = true;
     rw.toggleBtn->setEnabled(false);
     rw.toggleBtn->setText(" Loading...");
     rw.toggleBtn->setIcon(themedIcon(Icons16::Misc_Hourglass));
@@ -339,6 +381,45 @@ void GraphicsDockWidget::applyRowLoading(int row)
     // rw.isIn is deliberately left alone: this is a transient look over the
     // fetch, not a fourth row state. The title is still Hidden, and if the
     // fetch never lands the row is exactly where it was.
+}
+
+void GraphicsDockWidget::refreshRowBrokenState(int row)
+{
+    if (row < 0 || row >= (int)m_rowWidgets.size())
+        return;
+
+    TitleRow* rowPtr = m_rows[row].get();
+    auto& rw = m_rowWidgets[row];
+
+    if (rowPtr->dataSourceId.empty()) {
+        rw.broken = false;
+        rw.brokenReason.clear();
+    } else {
+        // Pool().Get() is individually thread-safe; no g_scene_mutex needed.
+        auto health = checkDataSourceHealth(g_scene.Pool().Get(rowPtr->dataSourceId));
+        rw.broken = health.broken;
+        rw.brokenReason = health.reason;
+    }
+
+    if (auto* nameItem = m_table->item(row, 0)) {
+        nameItem->setIcon(rw.broken ? themedIcon(Icons16::Misc_Warning) : QIcon());
+        nameItem->setToolTip(rw.broken ? rw.brokenReason : QString());
+    }
+
+    // Only the idle "In" look is gated: "Out" must always be clickable
+    // regardless of source health (hiding never fetches), and a fetch
+    // already in flight (applyRowLoading) owns the button's look for its own
+    // span — stomping it here would fight that transient state.
+    if (!rw.isIn && !rw.fetching) {
+        rw.toggleBtn->setEnabled(!rw.broken);
+        rw.toggleBtn->setStyleSheet(rw.broken ? kStyleLoading : kStyleIn);
+    }
+}
+
+void GraphicsDockWidget::refreshAllRowBrokenStates()
+{
+    for (int r = 0; r < (int)m_rows.size(); ++r)
+        refreshRowBrokenState(r);
 }
 
 void GraphicsDockWidget::reassignZOrders()
@@ -415,6 +496,13 @@ void GraphicsDockWidget::onToggle(int row)
         return;
     }
 
+    // Defense-in-depth: toggleBtn should already be disabled for a broken
+    // row (refreshRowBrokenState), but a click can slip in between the
+    // 250ms timer ticks. Harmless to skip either way — see
+    // checkDataSourceHealth for what "broken" means.
+    if (rw.broken)
+        return;
+
     size_t recIdx = 0;
     if (rw.settingsDialog) {
         int sel = rw.settingsDialog->selectedRecord();
@@ -439,7 +527,8 @@ void GraphicsDockWidget::onToggle(int row)
     //
     // Show the fetching state for the duration: greyed out and unclickable, so
     // the operator can see the title is on its way and a double-click can't
-    // queue two triggers. The queued continuation re-enables the button (or
+    // queue two triggers. The queued continuation clears the fetching flag
+    // and re-applies the row's normal look via refreshRowBrokenState() (or
     // leaves it be if the row was removed while the fetch was in flight), and
     // the " Out" look is painted by the applyRowState that TriggerIn's own
     // onTriggerIn callback posts immediately after — so the button reads
@@ -456,7 +545,8 @@ void GraphicsDockWidget::onToggle(int row)
             int r = rowIndexFor(rowPtr);
             if (r < 0)
                 return; // row removed while the fetch was in flight
-            m_rowWidgets[r].toggleBtn->setEnabled(true);
+            m_rowWidgets[r].fetching = false;
+            refreshRowBrokenState(r); // re-applies enabled/style now that fetching is done
 
             // The row may have been pointed at a different source while the
             // fetch was in flight — showing the old source's records would be
@@ -482,8 +572,14 @@ void GraphicsDockWidget::onDataSource(int row)
         QString name = m_table->item(row, 0) ? m_table->item(row, 0)->text() : "Title";
         rw.settingsDialog = new TitleSettingsDialog(name, this);
         rw.settingsDialog->setRow(m_rows[row].get());
+        TitleRow* rowPtr = m_rows[row].get();
         connect(rw.settingsDialog, &TitleSettingsDialog::configChanged,
-                this, [this]() { saveConfig(); });
+                this, [this, rowPtr]() {
+                    saveConfig();
+                    int r = rowIndexFor(rowPtr);
+                    if (r >= 0)
+                        refreshRowBrokenState(r);
+                });
     }
 
     rw.settingsDialog->show();
@@ -539,6 +635,7 @@ void GraphicsDockWidget::onReloadTitle(int row)
         m_rowWidgets[row].settingsDialog->setRow(rowPtr);
 
     reassignZOrders();
+    refreshRowBrokenState(row);
 }
 
 void GraphicsDockWidget::onRemoveTitle(int row)
@@ -757,18 +854,18 @@ void GraphicsDockWidget::refreshDataSourceUi()
             if (!src)
                 continue;
             // The pool key is a uuid now, so both the display path and the
-            // existence check come from the source itself rather than the
-            // key. A missing file doesn't unregister the source — it just
-            // can't fetch, so flag it rather than letting it look healthy
-            // while its titles quietly stop updating.
-            std::string path = src->GetFilePath();
-            std::error_code ec;
-            bool missing = !std::filesystem::exists(path, ec) || ec;
+            // health check come from the source itself rather than the key.
+            // A broken source (file gone, or a script that failed to load)
+            // doesn't unregister — it just can't fetch, so flag it rather
+            // than letting it look healthy while its titles quietly stop
+            // updating.
+            auto health = checkDataSourceHealth(src);
 
             DataSourceRow row;
             row.id = QString::fromStdString(id);
-            row.path = QString::fromStdString(path);
-            row.missing = missing;
+            row.path = QString::fromStdString(src->GetFilePath());
+            row.broken = health.broken;
+            row.brokenReason = health.reason;
             rows.push_back(row);
         }
         m_settingsDialog->setDataSources(rows);
@@ -778,6 +875,13 @@ void GraphicsDockWidget::refreshDataSourceUi()
         if (rw.settingsDialog)
             rw.settingsDialog->refreshDataSourceList();
     }
+
+    // Every pool mutation (add/reload/remove a data source) and every
+    // profile/scene-collection switch routes through here — the single hook
+    // that keeps the dock's own title-row warning icons in sync with the
+    // pool, without needing separate call sites at each of those places.
+    for (int r = 0; r < (int)m_rows.size(); ++r)
+        refreshRowBrokenState(r);
 }
 
 void GraphicsDockWidget::onAppSettingsClicked()

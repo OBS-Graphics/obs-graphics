@@ -29,9 +29,10 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 // the dialog does no I/O, so it cannot tell a live source from one whose file
 // has been deleted or unmounted.
 struct DataSourceRow {
-    QString id;            // pool key (a uuid, IDataSource::GetId())
-    QString path;          // full path; display-only, not the pool key
-    bool missing{false};   // the file is no longer present on disk
+    QString id;                // pool key (a uuid, IDataSource::GetId())
+    QString path;               // full path; display-only, not the pool key
+    bool broken{false};         // file gone, or (for a script) failed to load/parse
+    QString brokenReason;       // tooltip text explaining why; empty when !broken
 };
 
 // App-level (not per-title) settings dialog: editor path plus the shared

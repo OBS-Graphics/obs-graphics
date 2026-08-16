@@ -50,6 +50,15 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
+# plugin-support.c is compiled as its own standalone translation unit (see
+# cmake/common/helpers_common.cmake) and plugin-support.h now includes OBS's
+# own <util/base.h> for blogva's declaration (rather than hand-declaring it,
+# which used to conflict with util/base.h's own declaration under MSVC —
+# error C2375, different linkage) — so it needs OBS's include directories too.
+if(TARGET plugin-support)
+  target_link_libraries(plugin-support PUBLIC OBS::libobs)
+endif()
+
 find_package(obs-frontend-api REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 

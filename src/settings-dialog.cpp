@@ -121,15 +121,15 @@ void SettingsDialog::setDataSources(const QList<DataSourceRow>& rows)
 
         auto* nameItem = new QTableWidgetItem(displayNameForPath(path, "Data Source"));
         auto* pathItem = new QTableWidgetItem(path);
-        if (src.missing) {
+        if (src.broken) {
             // The source stays in the pool and every title's dataSourceId
             // keeps pointing at it — it just can't fetch. Flag it so a
-            // deleted/unmounted file is visible here rather than only
-            // showing up as a title that stopped updating.
+            // deleted/unmounted file or a script that failed to load is
+            // visible here rather than only showing up as a title that
+            // stopped updating.
             nameItem->setIcon(themedIcon(Icons16::Misc_Warning));
-            const QString tip = "File not found:\n" + path;
-            nameItem->setToolTip(tip);
-            pathItem->setToolTip(tip);
+            nameItem->setToolTip(src.brokenReason);
+            pathItem->setToolTip(src.brokenReason);
         }
         m_dataSourceTable->setItem(row, 0, nameItem);
         m_dataSourceTable->setItem(row, 1, pathItem);
