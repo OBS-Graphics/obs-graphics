@@ -115,12 +115,11 @@ void SettingsDialog::setDataSources(const QList<DataSourceRow>& rows)
     m_dataSourceTable->setRowCount(0);
 
     for (const DataSourceRow& src : rows) {
-        const QString& path = src.path;
         int row = m_dataSourceTable->rowCount();
         m_dataSourceTable->insertRow(row);
 
-        auto* nameItem = new QTableWidgetItem(displayNameForPath(path, "Data Source"));
-        auto* pathItem = new QTableWidgetItem(path);
+        auto* nameItem = new QTableWidgetItem(src.name);
+        auto* pathItem = new QTableWidgetItem(src.path); // empty for a source with no file
         if (src.broken) {
             // The source stays in the pool and every title's dataSourceId
             // keeps pointing at it — it just can't fetch. Flag it so a
@@ -139,8 +138,15 @@ void SettingsDialog::setDataSources(const QList<DataSourceRow>& rows)
         hbox->setContentsMargins(2, 2, 2, 2);
         hbox->setSpacing(2);
 
-        auto* reloadBtn = makeIconButton(Icons16::Action_Refresh, "Reload");
-        hbox->addWidget(reloadBtn);
+        // Hidden outright (not merely disabled) for a source with no file
+        // behind it — reloading a source that has nothing to re-read from
+        // disk is meaningless, and this is the only kind of row that ever
+        // sets reloadable to false.
+        QToolButton* reloadBtn = nullptr;
+        if (src.reloadable) {
+            reloadBtn = makeIconButton(Icons16::Action_Refresh, "Reload");
+            hbox->addWidget(reloadBtn);
+        }
 
         auto* removeBtn = makeIconButton(Icons16::Action_Trash, "Remove");
         hbox->addWidget(removeBtn);
@@ -151,9 +157,11 @@ void SettingsDialog::setDataSources(const QList<DataSourceRow>& rows)
         // rebuilds the whole table on every pool mutation, so a captured row
         // index would go stale as soon as rows are added/removed.
         const QString id = src.id;
-        connect(reloadBtn, &QToolButton::clicked, this, [this, id]() {
-            emit dataSourceReloadRequested(id);
-        });
+        if (reloadBtn) {
+            connect(reloadBtn, &QToolButton::clicked, this, [this, id]() {
+                emit dataSourceReloadRequested(id);
+            });
+        }
         connect(removeBtn, &QToolButton::clicked, this, [this, id]() {
             emit dataSourceRemoveRequested(id);
         });

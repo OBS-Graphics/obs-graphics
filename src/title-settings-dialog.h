@@ -30,6 +30,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 #include <QShowEvent>
 #include <QTableWidget>
 #include <QTimer>
+#include <QToolButton>
 
 // Per-title dialog: "Data Source" tab (a combo box binding this title to one
 // of g_scene.Pool()'s registered source ids, plus the resulting record table)
@@ -52,6 +53,14 @@ public:
 
 signals:
     void configChanged();
+    // Entry points into the per-title "New manual data source..."/"Edit
+    // manual data..." buttons. This dialog owns no pool state, so it only
+    // asks — GraphicsDockWidget does the Pool().Add()/SetTable() and the
+    // rebind. manualSourceEditRequested carries the currently bound source's
+    // id (only emitted while m_manualEditBtn is enabled, i.e. it resolves to
+    // a ManualDataSource).
+    void manualSourceCreateRequested();
+    void manualSourceEditRequested(const QString& id);
 
 protected:
     void showEvent(QShowEvent* event) override;
@@ -65,9 +74,17 @@ private slots:
 
 private:
     void rebuildTable();
+    // Enables m_manualEditBtn only when the currently bound source resolves
+    // to a ManualDataSource — same dynamic_cast-on-the-UI-thread precedent
+    // updateScriptErrorLabel() already uses for ScriptDataSource. Called from
+    // refreshDataSourceList() and onDataSourceChanged() so it can never go
+    // stale relative to what the combo is actually pointed at.
+    void updateManualEditEnabled();
 
     TitleRow* m_row{nullptr};
     QComboBox* m_dataSourceCombo{nullptr};
+    QToolButton* m_manualCreateBtn{nullptr};
+    QToolButton* m_manualEditBtn{nullptr};
     QLabel* m_scriptErrorLabel{nullptr};
     QTableWidget* m_recordTable{nullptr};
     QGroupBox* m_durationGroup{nullptr};

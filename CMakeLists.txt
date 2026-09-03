@@ -88,6 +88,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     src/ui-util.cpp
     src/settings-dialog.cpp
     src/title-settings-dialog.cpp
+    src/manual-source-dialog.h
+    src/manual-source-dialog.cpp
     src/graphics-dock.cpp
     src/graphics-source.cpp
     src/icons.cpp

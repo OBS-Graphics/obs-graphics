@@ -18,6 +18,7 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 
 #include "title-settings-dialog.h"
 #include "engine/data-pool.h"
+#include "engine/data-source.h"
 #include "engine/script.h"
 
 #include <QHBoxLayout>
@@ -57,6 +58,23 @@ TitleSettingsDialog::TitleSettingsDialog(const QString& titleName, QWidget* pare
     connect(m_dataSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &TitleSettingsDialog::onDataSourceChanged);
     pickerRow->addWidget(m_dataSourceCombo, 1);
+
+    m_manualCreateBtn = makeIconButton(Icons16::Action_Plus, "New manual data source...");
+    connect(m_manualCreateBtn, &QToolButton::clicked, this,
+            [this]() { emit manualSourceCreateRequested(); });
+    pickerRow->addWidget(m_manualCreateBtn);
+
+    // Only meaningful while the bound source is itself a ManualDataSource —
+    // updateManualEditEnabled() keeps this in sync with what the combo is
+    // actually pointed at, so there is no dataSourceId to double-check here.
+    m_manualEditBtn = makeIconButton(Icons16::Misc_Pen, "Edit manual data...");
+    m_manualEditBtn->setEnabled(false);
+    connect(m_manualEditBtn, &QToolButton::clicked, this, [this]() {
+        if (m_row)
+            emit manualSourceEditRequested(QString::fromStdString(m_row->dataSourceId));
+    });
+    pickerRow->addWidget(m_manualEditBtn);
+
     dsLayout->addLayout(pickerRow);
 
     m_scriptErrorLabel = new QLabel();
@@ -147,14 +165,25 @@ void TitleSettingsDialog::refreshDataSourceList()
             continue;
         QString qid = QString::fromStdString(id);
         QString path = QString::fromStdString(src->GetFilePath());
-        m_dataSourceCombo->addItem(displayNameForPath(path, path), qid);
-        m_dataSourceCombo->setItemData(m_dataSourceCombo->count() - 1, path, Qt::ToolTipRole);
+        QString display = QString::fromStdString(src->GetDisplayName());
+        // A manual source with no name typed has neither a display name nor a
+        // path, and displayNameForPath("", "") returns "" — which would add a
+        // zero-length combo item, so a bound title would look unbound. Fall
+        // back to the same generic label the Data Sources tab uses.
+        if (display.isEmpty())
+            display = displayNameForPath(path, "Data Source");
+        m_dataSourceCombo->addItem(display, qid);
+        // A path tooltip is meaningless for a source with no file (e.g.
+        // manual) — leave it unset rather than showing an empty string.
+        if (!path.isEmpty())
+            m_dataSourceCombo->setItemData(m_dataSourceCombo->count() - 1, path, Qt::ToolTipRole);
     }
 
     int idx = m_dataSourceCombo->findData(QString::fromStdString(m_row->dataSourceId));
     m_dataSourceCombo->setCurrentIndex(idx >= 0 ? idx : 0);
 
     rebuildTable();
+    updateManualEditEnabled();
 }
 
 void TitleSettingsDialog::showEvent(QShowEvent* event)
@@ -187,6 +216,16 @@ void TitleSettingsDialog::updateScriptErrorLabel()
     } else {
         m_scriptErrorLabel->setVisible(false);
     }
+}
+
+void TitleSettingsDialog::updateManualEditEnabled()
+{
+    // Same dynamic_cast-on-the-UI-thread precedent as updateScriptErrorLabel()
+    // above: g_scene.Pool().Get() is the documented host-UI-only escape
+    // hatch, safe without the scene lock since it never touches a Title.
+    bool enabled = m_row &&
+                   dynamic_cast<ManualDataSource*>(g_scene.Pool().Get(m_row->dataSourceId));
+    m_manualEditBtn->setEnabled(enabled);
 }
 
 int TitleSettingsDialog::selectedRecord() const
@@ -227,11 +266,17 @@ void TitleSettingsDialog::onDataSourceChanged(int index)
     m_row->dataSourceId = id;
     if (m_row->title) {
         std::lock_guard<std::mutex> lock(g_scene_mutex);
-        m_row->title->dataSourceId = id;
+        // SetDataSource, not a bare dataSourceId assignment: it also clears
+        // the Title's cached data version, which would otherwise carry over
+        // from the previous source and could make a Visible title read the
+        // new source as "unchanged" and keep showing the old record. See
+        // engine/title.h.
+        m_row->title->SetDataSource(id);
     }
 
     rebuildTable();
     updateScriptErrorLabel();
+    updateManualEditEnabled();
     emit configChanged();
 }
 

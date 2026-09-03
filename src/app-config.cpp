@@ -65,7 +65,39 @@ AppConfig AppConfig::Load(const std::string& configPath)
             DataSourceEntry de;
             de.id = entry.value("id", "");
             de.path = entry.value("path", "");
-            cfg.dataSources.push_back(de);
+            // v6 entries carry no "kind" key at all, so they read back as
+            // "file" with no special case needed -- that's the whole v6->v7
+            // migration for this field.
+            de.kind = entry.value("kind", "file");
+            if (de.kind == "manual") {
+                de.name = entry.value("name", "");
+                // Defensive shape checks throughout: a hand-edited or
+                // truncated file must load, not throw. A row shorter or
+                // longer than the column list is kept exactly as found --
+                // the engine pads short rows itself, so normalising here
+                // would just be lossy.
+                if (entry.contains("columns") && entry["columns"].is_array()) {
+                    for (auto& c : entry["columns"]) {
+                        if (!c.is_object())
+                            continue;
+                        DataSourceColumnEntry col;
+                        col.name = c.value("name", "");
+                        col.type = c.value("type", "text");
+                        de.columns.push_back(std::move(col));
+                    }
+                }
+                if (entry.contains("rows") && entry["rows"].is_array()) {
+                    for (auto& r : entry["rows"]) {
+                        if (!r.is_array())
+                            continue;
+                        std::vector<std::string> row;
+                        for (auto& cell : r)
+                            row.push_back(cell.is_string() ? cell.get<std::string>() : "");
+                        de.rows.push_back(std::move(row));
+                    }
+                }
+            }
+            cfg.dataSources.push_back(std::move(de));
         }
     }
 
@@ -130,6 +162,12 @@ AppConfig AppConfig::Load(const std::string& configPath)
     // to sniff) *and* a top-level "data_sources" key present at all (so we're
     // not in the v3/v4 backfill path above) -- there we fall back to the
     // "version" int, which is the only case where reading it is unambiguous.
+    //
+    // v7's manual-kind entries don't disturb this sniff at all -- it only
+    // ever looks at "id", never at "kind" or "path", and a manual entry mints
+    // and carries an id exactly the same way a file entry does. There is no
+    // v5 shape with "kind": "manual" either, so the same any-id-anywhere
+    // proof of v6-or-later still holds.
     bool isV6 = true;
     if (!cfg.dataSources.empty()) {
         isV6 = std::any_of(cfg.dataSources.begin(), cfg.dataSources.end(),
@@ -175,13 +213,36 @@ AppConfig AppConfig::Load(const std::string& configPath)
 void AppConfig::Save(const std::string& configPath) const
 {
     json j;
-    j["version"] = 6;
+    j["version"] = 7;
 
     json dsArr = json::array();
     for (auto& de : dataSources) {
         json e;
         e["id"] = de.id;
-        e["path"] = de.path;
+        e["kind"] = de.kind;
+        if (de.kind == "manual") {
+            // No "path" key for a manual source -- it doesn't have one, and
+            // an empty key would just be noise.
+            e["name"] = de.name;
+            json cols = json::array();
+            for (auto& c : de.columns) {
+                json ce;
+                ce["name"] = c.name;
+                ce["type"] = c.type;
+                cols.push_back(ce);
+            }
+            e["columns"] = cols;
+            json rows = json::array();
+            for (auto& r : de.rows) {
+                json re = json::array();
+                for (auto& cell : r)
+                    re.push_back(cell);
+                rows.push_back(re);
+            }
+            e["rows"] = rows;
+        } else {
+            e["path"] = de.path;
+        }
         dsArr.push_back(e);
     }
     j["data_sources"] = dsArr;

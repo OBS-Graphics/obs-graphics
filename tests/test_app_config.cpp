@@ -2,8 +2,13 @@
 // Copyright (c) 2026 Diego Lopes <diego95lopes@gmail.com>
 //
 // Headless console test (no OBS, no Qt): AppConfig JSON load/save and
-// migration coverage, schema v6 (uuid-keyed data sources + titles).
+// migration coverage, schema v6/v7 (uuid-keyed data sources + titles; v7
+// adds inline "manual" data sources alongside file ones).
 //
+//  - v7 save->load round-trip preserves a manual source's whole inline
+//    table (name, typed columns, rows including a ragged or empty cell).
+//  - a v6 file has no "kind" key at all -- every entry reads back as kind
+//    "file", with no special-cased migration step needed.
 //  - v6 save->load round-trip preserves every field, including ids.
 //  - v5->v6 migration mints uuids for every data source and title, rewrites
 //    each title's path-valued "data_source" to the matching source's minted
@@ -125,8 +130,8 @@ void TestV5ToV6Migration()
     loaded.Save(savedPath);
     std::ifstream check(savedPath);
     std::string contents((std::istreambuf_iterator<char>(check)), std::istreambuf_iterator<char>());
-    Check(contents.find("bind_name") == std::string::npos, "V5Migration: bind_name absent from the saved v6 output");
-    Check(contents.find("\"version\": 6") != std::string::npos, "V5Migration: saved output is tagged version 6");
+    Check(contents.find("bind_name") == std::string::npos, "V5Migration: bind_name absent from the saved output");
+    Check(contents.find("\"version\": 7") != std::string::npos, "V5Migration: saved output is tagged version 7");
 }
 
 void TestV5UnmatchedDataSourcePathEndsUpUnbound()
@@ -671,6 +676,176 @@ void TestMintedIdsUniqueAtScale()
     Check(everyBindingResolved, "MintedIdsScale: every title's binding resolved to its matching data source's minted id");
 }
 
+void TestV7ManualRoundTrip()
+{
+    auto dir = MakeTempDir("v7-manual-round-trip");
+    auto path = (dir / "config.json").string();
+
+    AppConfig cfg;
+    DataSourceEntry manual;
+    manual.id = uuid::GenerateV4();
+    manual.kind = "manual";
+    manual.name = "Lower third names";
+    manual.columns = {{"name", "text"}, {"photo", "image"}};
+    manual.rows = {{"Alice", "/home/d/a.png"}, {"Bob", ""}};
+    cfg.dataSources = {manual};
+    cfg.Save(path);
+
+    AppConfig loaded = AppConfig::Load(path);
+
+    Check(loaded.dataSources.size() == 1, "V7ManualRoundTrip: one data source loaded");
+    if (loaded.dataSources.size() != 1)
+        return;
+
+    const auto& de = loaded.dataSources[0];
+    Check(de.id == manual.id, "V7ManualRoundTrip: id preserved");
+    Check(de.kind == "manual", "V7ManualRoundTrip: kind preserved as manual");
+    Check(de.path.empty(), "V7ManualRoundTrip: path stays empty for a manual source");
+    Check(de.name == "Lower third names", "V7ManualRoundTrip: name preserved");
+
+    Check(de.columns.size() == 2, "V7ManualRoundTrip: both columns preserved");
+    if (de.columns.size() == 2) {
+        Check(de.columns[0].name == "name", "V7ManualRoundTrip: columns[0].name preserved");
+        Check(de.columns[0].type == "text", "V7ManualRoundTrip: columns[0].type preserved");
+        Check(de.columns[1].name == "photo", "V7ManualRoundTrip: columns[1].name preserved");
+        Check(de.columns[1].type == "image", "V7ManualRoundTrip: columns[1].type preserved");
+    }
+
+    Check(de.rows.size() == 2, "V7ManualRoundTrip: both rows preserved");
+    if (de.rows.size() == 2) {
+        Check(de.rows[0] == std::vector<std::string>({"Alice", "/home/d/a.png"}), "V7ManualRoundTrip: rows[0] preserved");
+        Check(de.rows[1] == std::vector<std::string>({"Bob", ""}), "V7ManualRoundTrip: rows[1] (with an empty cell) preserved");
+    }
+}
+
+void TestV6ConfigReadsAsFileKind()
+{
+    // A hand-written v6 file has no "kind" key on any data_sources entry at
+    // all -- Load must default every one of them to "file" with nothing
+    // dropped, rather than requiring a special-cased migration step.
+    auto dir = MakeTempDir("v6-reads-as-file-kind");
+    auto path = (dir / "config.json").string();
+
+    WriteFile(path, R"JSON({
+        "version": 6,
+        "data_sources": [
+            {"id": "11111111-1111-4111-8111-111111111111", "path": "/home/u/feedA.lua"},
+            {"id": "22222222-2222-4222-8222-222222222222", "path": "/home/u/feedB.json"}
+        ],
+        "titles": []
+    })JSON");
+
+    AppConfig loaded = AppConfig::Load(path);
+
+    Check(loaded.dataSources.size() == 2, "V6ReadsAsFileKind: both entries loaded");
+    if (loaded.dataSources.size() != 2)
+        return;
+
+    Check(loaded.dataSources[0].kind == "file", "V6ReadsAsFileKind: entry[0] defaults to kind file");
+    Check(loaded.dataSources[0].id == "11111111-1111-4111-8111-111111111111", "V6ReadsAsFileKind: entry[0] id intact");
+    Check(loaded.dataSources[0].path == "/home/u/feedA.lua", "V6ReadsAsFileKind: entry[0] path intact");
+    Check(loaded.dataSources[1].kind == "file", "V6ReadsAsFileKind: entry[1] defaults to kind file");
+    Check(loaded.dataSources[1].id == "22222222-2222-4222-8222-222222222222", "V6ReadsAsFileKind: entry[1] id intact");
+    Check(loaded.dataSources[1].path == "/home/u/feedB.json", "V6ReadsAsFileKind: entry[1] path intact");
+}
+
+void TestMixedFileAndManualRoundTrip()
+{
+    auto dir = MakeTempDir("mixed-file-and-manual");
+    auto path = (dir / "config.json").string();
+
+    AppConfig cfg;
+    DataSourceEntry fileSource;
+    fileSource.id = uuid::GenerateV4();
+    fileSource.kind = "file";
+    fileSource.path = "/home/u/feed.lua";
+
+    DataSourceEntry manualSource;
+    manualSource.id = uuid::GenerateV4();
+    manualSource.kind = "manual";
+    manualSource.name = "Guests";
+    manualSource.columns = {{"name", "text"}};
+    manualSource.rows = {{"Carol"}};
+
+    cfg.dataSources = {fileSource, manualSource};
+    cfg.titles = {
+        {uuid::GenerateV4(), "/home/u/title1.ogt", fileSource.id, -1.0},
+        {uuid::GenerateV4(), "/home/u/title2.ogt", manualSource.id, 4.0},
+    };
+    cfg.Save(path);
+
+    AppConfig loaded = AppConfig::Load(path);
+
+    Check(loaded.dataSources.size() == 2, "MixedFileAndManual: both sources loaded");
+    Check(loaded.titles.size() == 2, "MixedFileAndManual: both titles loaded");
+    if (loaded.dataSources.size() != 2 || loaded.titles.size() != 2)
+        return;
+
+    Check(loaded.dataSources[0].kind == "file", "MixedFileAndManual: source[0] kind preserved");
+    Check(loaded.dataSources[0].path == "/home/u/feed.lua", "MixedFileAndManual: source[0] path preserved");
+    Check(loaded.dataSources[1].kind == "manual", "MixedFileAndManual: source[1] kind preserved");
+    Check(loaded.dataSources[1].name == "Guests", "MixedFileAndManual: source[1] name preserved");
+
+    Check(loaded.titles[0].dataSourceId == fileSource.id, "MixedFileAndManual: title[0] bound to the file source");
+    Check(loaded.titles[1].dataSourceId == manualSource.id, "MixedFileAndManual: title[1] bound to the manual source");
+
+    // A second Save->Load round-trip must be a fixed point: ids, bindings and
+    // the manual table all still intact.
+    auto resavedPath = (dir / "resaved.json").string();
+    loaded.Save(resavedPath);
+    AppConfig reloaded = AppConfig::Load(resavedPath);
+
+    Check(reloaded.dataSources.size() == 2, "MixedFileAndManual: both sources survive a second round-trip");
+    Check(reloaded.titles.size() == 2, "MixedFileAndManual: both titles survive a second round-trip");
+    if (reloaded.dataSources.size() == 2 && reloaded.titles.size() == 2) {
+        Check(reloaded.dataSources[0].id == fileSource.id, "MixedFileAndManual: source[0] id stable across two round-trips");
+        Check(reloaded.dataSources[1].id == manualSource.id, "MixedFileAndManual: source[1] id stable across two round-trips");
+        Check(reloaded.dataSources[1].rows.size() == 1 && reloaded.dataSources[1].rows[0] == std::vector<std::string>({"Carol"}),
+              "MixedFileAndManual: manual rows survive a second round-trip");
+        Check(reloaded.titles[0].dataSourceId == fileSource.id, "MixedFileAndManual: title[0] binding stable");
+        Check(reloaded.titles[1].dataSourceId == manualSource.id, "MixedFileAndManual: title[1] binding stable");
+    }
+}
+
+void TestManualSourceWithRaggedRows()
+{
+    // Rows shorter or longer than the column list must round-trip verbatim
+    // -- normalising them here would be lossy, and the engine pads short
+    // rows itself.
+    auto dir = MakeTempDir("manual-ragged-rows");
+    auto path = (dir / "config.json").string();
+
+    AppConfig cfg;
+    DataSourceEntry manual;
+    manual.id = uuid::GenerateV4();
+    manual.kind = "manual";
+    manual.name = "Ragged";
+    manual.columns = {{"a", "text"}, {"b", "text"}, {"c", "text"}};
+    manual.rows = {
+        {"only-one"},                     // shorter than the column list
+        {"one", "two", "three", "four"},  // longer than the column list
+        {"x", "y", "z"},                  // exact match
+    };
+    cfg.dataSources = {manual};
+    cfg.Save(path);
+
+    AppConfig loaded = AppConfig::Load(path);
+
+    Check(loaded.dataSources.size() == 1, "ManualRaggedRows: data source loaded");
+    if (loaded.dataSources.size() != 1)
+        return;
+
+    const auto& de = loaded.dataSources[0];
+    Check(de.rows.size() == 3, "ManualRaggedRows: all three rows preserved");
+    if (de.rows.size() != 3)
+        return;
+
+    Check(de.rows[0] == std::vector<std::string>({"only-one"}), "ManualRaggedRows: short row kept short, not padded");
+    Check(de.rows[1] == std::vector<std::string>({"one", "two", "three", "four"}),
+          "ManualRaggedRows: long row kept long, not truncated");
+    Check(de.rows[2] == std::vector<std::string>({"x", "y", "z"}), "ManualRaggedRows: exact-length row preserved");
+}
+
 }  // namespace
 
 int main()
@@ -694,6 +869,10 @@ int main()
     TestV5DuplicateDataSourcePathsKeepSeparateEntriesLastOneWinsBinding();
     TestV6ObjectTitleMissingDurationDefaultsToMinusOne();
     TestMintedIdsUniqueAtScale();
+    TestV7ManualRoundTrip();
+    TestV6ConfigReadsAsFileKind();
+    TestMixedFileAndManualRoundTrip();
+    TestManualSourceWithRaggedRows();
 
     if (g_failures == 0) {
         std::printf("\nAll checks passed.\n");

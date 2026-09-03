@@ -28,9 +28,18 @@ struct TitleEntry {
     double duration{-1.0};     // seconds; -1.0 = auto-hide disabled
 };
 
+struct DataSourceColumnEntry {
+    std::string name;
+    std::string type{"text"};  // "text" | "image"
+};
+
 struct DataSourceEntry {
-    std::string id;    // uuid; minted by Load if missing (e.g. a pre-v6 config)
-    std::string path;
+    std::string id;                              // uuid; minted by Load if missing (e.g. a pre-v6 config)
+    std::string path;                            // file sources; empty for manual
+    std::string kind{"file"};                    // "file" | "manual"
+    std::string name;                            // manual only
+    std::vector<DataSourceColumnEntry> columns;  // manual only
+    std::vector<std::vector<std::string>> rows;  // manual only
 };
 
 struct AppConfig {

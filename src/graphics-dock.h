@@ -116,6 +116,13 @@ private:
     // stem of row->path. Takes g_scene_mutex itself to read the name; must
     // NOT be called with it already held.
     QString rowDisplayName(TitleRow* row) const;
+    // Services both TitleSettingsDialog::manualSourceCreateRequested (empty
+    // `id`) and manualSourceEditRequested (`id` of the bound ManualDataSource)
+    // for the title at `rowPtr`. Collects rowPtr's element ids under
+    // g_scene_mutex, releases the lock, runs a ManualSourceDialog modally,
+    // and on acceptance either registers a new ManualDataSource and rebinds
+    // rowPtr to it (create) or overwrites the existing one's table (edit).
+    void onManualDataSourceRequest(TitleRow* rowPtr, const QString& id);
 
     QTableWidget* m_table{nullptr};
     // Stable addresses matter here: dialogs (TitleSettingsDialog::m_row) and

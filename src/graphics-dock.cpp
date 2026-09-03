@@ -17,9 +17,11 @@ with this program; if not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "graphics-dock.h"
+#include "engine/element_image.h"
 #include "engine/script.h"
 #include "engine/uuid.h"
 #include "icons.h"
+#include "manual-source-dialog.h"
 #include "plugin-support.h"
 #include "ui-util.h"
 
@@ -98,6 +100,41 @@ std::unique_ptr<IDataSource> tryMakeDataSource(QWidget* parent, const std::strin
     return nullptr;
 }
 
+// "text"/"image" <-> ManualDataSource::ColumnType lives here and nowhere
+// else — every other conversion between a config DataSourceEntry and an
+// engine ManualDataSource::Table goes through these two functions.
+ManualDataSource::Table manualTableFromEntry(const DataSourceEntry& entry)
+{
+    ManualDataSource::Table table;
+    table.name = entry.name;
+    for (auto& col : entry.columns) {
+        ManualDataSource::ColumnType type = (col.type == "image")
+                                                 ? ManualDataSource::ColumnType::Image
+                                                 : ManualDataSource::ColumnType::Text;
+        table.columns.push_back({col.name, type});
+    }
+    // A v7 config keeps ragged rows verbatim (a row may be shorter or longer
+    // than the column list). That's fine for the engine — GetData() pads a
+    // short row itself — so this passes rows through unchanged rather than
+    // padding/truncating here.
+    table.rows = entry.rows;
+    return table;
+}
+
+DataSourceEntry entryFromManualTable(const std::string& id, const ManualDataSource::Table& table)
+{
+    DataSourceEntry entry;
+    entry.id = id;
+    entry.kind = "manual";
+    entry.name = table.name;
+    for (auto& col : table.columns) {
+        std::string type = (col.type == ManualDataSource::ColumnType::Image) ? "image" : "text";
+        entry.columns.push_back({col.name, type});
+    }
+    entry.rows = table.rows;
+    return entry;
+}
+
 // What "broken" means for a bound data source, shared by the title-row
 // warning icon (GraphicsDockWidget::refreshRowBrokenState) and the Data
 // Sources tab (refreshDataSourceUi): the file backing it is gone, or — for a
@@ -115,8 +152,15 @@ DataSourceHealth checkDataSourceHealth(const IDataSource* src)
     if (!src)
         return {true, "Data source not found."};
 
-    std::error_code ec;
     std::string path = src->GetFilePath();
+    // A source with no file behind it (currently just ManualDataSource) has
+    // no meaningful existence check — testing the empty path here, rather
+    // than dynamic_cast<ManualDataSource*>, means any future file-less
+    // source type gets this for free too.
+    if (path.empty())
+        return {false, {}};
+
+    std::error_code ec;
     if (!std::filesystem::exists(path, ec) || ec)
         return {true, QString("File not found:\n%1").arg(QString::fromStdString(path))};
 
@@ -580,11 +624,150 @@ void GraphicsDockWidget::onDataSource(int row)
                     if (r >= 0)
                         refreshRowBrokenState(r);
                 });
+
+        // rowPtr, not the captured `row` index — a row can be removed and
+        // others shift while this dialog stays open, exactly as for
+        // configChanged above.
+        connect(rw.settingsDialog, &TitleSettingsDialog::manualSourceCreateRequested,
+                this, [this, rowPtr]() {
+                    if (rowIndexFor(rowPtr) >= 0)
+                        onManualDataSourceRequest(rowPtr, QString());
+                });
+        connect(rw.settingsDialog, &TitleSettingsDialog::manualSourceEditRequested,
+                this, [this, rowPtr](const QString& id) {
+                    if (rowIndexFor(rowPtr) >= 0)
+                        onManualDataSourceRequest(rowPtr, id);
+                });
     }
 
     rw.settingsDialog->show();
     rw.settingsDialog->raise();
     rw.settingsDialog->activateWindow();
+}
+
+void GraphicsDockWidget::onManualDataSourceRequest(TitleRow* rowPtr, const QString& id)
+{
+    // Collect this title's element ids under g_scene_mutex, then release the
+    // lock before doing anything else — a modal dialog must never be opened
+    // while it's held (see CLAUDE.md's locking rules).
+    QStringList textIds, imageIds;
+    {
+        std::lock_guard<std::mutex> lock(g_scene_mutex);
+        if (rowPtr->title) {
+            // elements[0] is always the auto-created root (title.cpp) — it
+            // isn't something a manual data source column can target.
+            auto& elements = rowPtr->title->elements;
+            for (size_t i = 1; i < elements.size(); ++i) {
+                IElement* el = elements[i].get();
+                QString qid = QString::fromStdString(el->GetId());
+                if (dynamic_cast<ImageElement*>(el))
+                    imageIds << qid;
+                else
+                    textIds << qid;
+            }
+        }
+    }
+
+    const bool editing = !id.isEmpty();
+    QString dlgName;
+    QList<ManualColumnRow> dlgColumns;
+    QList<QStringList> dlgRows;
+
+    if (editing) {
+        auto* ms = dynamic_cast<ManualDataSource*>(g_scene.Pool().Get(id.toStdString()));
+        if (!ms)
+            return; // removed from under us
+        ManualDataSource::Table table = ms->GetTable();
+
+        dlgName = QString::fromStdString(table.name);
+        for (auto& col : table.columns)
+            dlgColumns.push_back({QString::fromStdString(col.name),
+                                   col.type == ManualDataSource::ColumnType::Image});
+        // ManualSourceDialog::setTable() requires rows already rectangular
+        // against columns; a config- or engine-side Table can be ragged (a
+        // row shorter or longer than the column list), so pad/truncate every
+        // row to dlgColumns.size() here rather than in the dialog.
+        for (auto& row : table.rows) {
+            QStringList qrow;
+            for (int c = 0; c < dlgColumns.size(); ++c) {
+                qrow << (static_cast<size_t>(c) < row.size() ? QString::fromStdString(row[c])
+                                                              : QString());
+            }
+            dlgRows.push_back(qrow);
+        }
+    }
+
+    ManualSourceDialog dialog(this);
+    dialog.setElementIds(textIds, imageIds);
+    dialog.setTable(dlgName, dlgColumns, dlgRows);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    // exec() spins a nested event loop, and Qt's modality only blocks user
+    // input — a queued metacall still runs. A profile or scene-collection
+    // switch (obs_frontend_set_current_scene_collection, obs-websocket, a
+    // frontend script) marshals onto this thread exactly that way, and
+    // reloadForCurrentContext() -> clearTitles() then frees every TitleRow
+    // and empties the pool. So rowPtr may be dangling here, and anything
+    // written to the pool or the config would land in the *next* context —
+    // the same resurrection hazard clearTitles() already guards against for
+    // the Data Sources tab's captured ids. Re-validate before touching
+    // anything, exactly as the connect lambdas do before calling in.
+    if (rowIndexFor(rowPtr) < 0)
+        return;
+
+    ManualDataSource::Table table;
+    table.name = dialog.tableName().toStdString();
+    for (auto& col : dialog.columns()) {
+        table.columns.push_back({col.name.toStdString(), col.image
+                                                               ? ManualDataSource::ColumnType::Image
+                                                               : ManualDataSource::ColumnType::Text});
+    }
+    for (auto& qrow : dialog.rows()) {
+        std::vector<std::string> row;
+        for (auto& cell : qrow)
+            row.push_back(cell.toStdString());
+        table.rows.push_back(std::move(row));
+    }
+
+    std::string sourceId;
+    if (editing) {
+        auto* ms = dynamic_cast<ManualDataSource*>(g_scene.Pool().Get(id.toStdString()));
+        if (!ms)
+            return; // removed from under us while the dialog was open
+        ms->SetTable(std::move(table));
+        sourceId = id.toStdString();
+    } else {
+        auto src = std::make_unique<ManualDataSource>(std::move(table));
+        sourceId = g_scene.Pool().Add(std::move(src));
+        rowPtr->dataSourceId = sourceId;
+        {
+            std::lock_guard<std::mutex> lock(g_scene_mutex);
+            // SetDataSource clears the Title's cached data version too; a
+            // bare assignment would leave it carrying over from whatever
+            // source this title read before, and a Visible title could then
+            // read the brand-new source as "unchanged". See engine/title.h.
+            if (rowPtr->title)
+                rowPtr->title->SetDataSource(sourceId);
+        }
+    }
+
+    // GetDataBlocking() for a ManualDataSource is the inherited default
+    // (GetData()), so this returns instantly and cannot block — it only
+    // forces the pool to refresh its cache and bump the version right now.
+    // Without it, refreshDataSourceUi() below would rebuild the record table
+    // from a cache up to one poll interval (0.25s) stale, and a just-saved
+    // edit would look like it hadn't taken. This is safe here with NO scene
+    // lock held — see CLAUDE.md's rule against calling DataBlocking under
+    // g_scene_mutex.
+    g_scene.Pool().DataBlocking(sourceId);
+    saveConfig();
+    // For Create, rowPtr->dataSourceId was set above, before this call —
+    // refreshDataSourceUi() -> TitleSettingsDialog::refreshDataSourceList()
+    // re-selects this title's combo by findData(dataSourceId), so setting it
+    // first is what makes the new source land there.
+    refreshDataSourceUi();
 }
 
 void GraphicsDockWidget::onReloadTitle(int row)
@@ -676,7 +859,12 @@ void GraphicsDockWidget::saveConfig()
 
     AppConfig cfg;
     for (auto& id : g_scene.Pool().Ids()) {
-        if (auto* src = g_scene.Pool().Get(id))
+        auto* src = g_scene.Pool().Get(id);
+        if (!src)
+            continue;
+        if (auto* manual = dynamic_cast<const ManualDataSource*>(src))
+            cfg.dataSources.push_back(entryFromManualTable(id, manual->GetTable()));
+        else
             cfg.dataSources.push_back({id, src->GetFilePath()});
     }
     for (auto& row : m_rows)
@@ -781,6 +969,17 @@ void GraphicsDockWidget::loadConfig()
     // GetData() — dropping it here on a transient exists() miss is what used
     // to erase the entry (and any title's binding to it) on the next save.
     for (auto& de : cfg.dataSources) {
+        // A manual source has no file, so it never goes through the
+        // path-empty skip or the try/catch below — those exist for the file
+        // constructors' own I/O, and ManualDataSource's constructor does
+        // none.
+        if (de.kind == "manual") {
+            auto src = std::make_unique<ManualDataSource>(manualTableFromEntry(de));
+            src->SetId(de.id); // restore the persisted id before Add() keys the registry by it
+            g_scene.Pool().Add(std::move(src));
+            continue;
+        }
+
         if (de.path.empty())
             continue;
         try {
@@ -864,6 +1063,9 @@ void GraphicsDockWidget::refreshDataSourceUi()
             DataSourceRow row;
             row.id = QString::fromStdString(id);
             row.path = QString::fromStdString(src->GetFilePath());
+            QString display = QString::fromStdString(src->GetDisplayName());
+            row.name = !display.isEmpty() ? display : displayNameForPath(row.path, "Data Source");
+            row.reloadable = !row.path.isEmpty();
             row.broken = health.broken;
             row.brokenReason = health.reason;
             rows.push_back(row);
